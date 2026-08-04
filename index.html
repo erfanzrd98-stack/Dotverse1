@@ -35,7 +35,6 @@
   #topbar-mobile{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);background:#fff;flex-shrink:0;overflow-x:auto;}
   .topbar-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px 4px;cursor:pointer;color:var(--muted);min-width:45px;}
   .topbar-btn .tb-icon{font-size:20px;}
-  /* Hiding the labels as requested */
   .topbar-btn .tb-label{display:none;}
   .topbar-btn.hidden{display:none;}
   
@@ -96,9 +95,8 @@
   
   .pm-history-view{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:16px;}
   .pm-history-msg{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;word-break:break-word;color:#000;}
-  .pm-history-msg b{font-size:10px;display:block;margin-bottom:2px;opacity:0.8;}
 
-  /* Friends List & Community Tabs */
+  /* Community Tabs */
   .pm-modal-tabs{display:flex;gap:4px;margin-bottom:20px;background:#f4f5f7;border-radius:10px;padding:3px;}
   .pm-modal-tab{flex:1;text-align:center;padding:8px 0;font-size:13.5px;font-weight:600;border-radius:8px;cursor:pointer;color:var(--muted);}
   .pm-modal-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1);}
@@ -144,7 +142,6 @@
     <div class="topbar-btn" id="tb-pms"><span class="tb-icon">👥</span><span class="tb-label">Community</span></div>
     <div class="topbar-btn" id="tb-rooms"><span class="tb-icon">💬</span><span class="tb-label">Rooms</span></div>
     <div class="topbar-btn" id="tb-dots"><span class="tb-icon">🪙</span><span class="tb-label">Dots</span></div>
-    <div class="topbar-btn" id="tb-games"><span class="tb-icon">🎮</span><span class="tb-label">Games</span></div>
     <div class="topbar-btn hidden" id="tb-admin"><span class="tb-icon">👑</span><span class="tb-label">Admin</span></div>
     <div class="topbar-btn" id="tb-roominfo"><span class="tb-icon">ℹ️</span><span class="tb-label">Room</span></div>
   </div>
@@ -380,7 +377,7 @@ async function sendReply(sender, popupId) {
   } else { alert('User not found'); }
 }
 
-// --- Community Logic (Friends, History, Report) ---
+// --- Community Logic ---
 el('tb-pms').onclick = async () => {
   openModal('👥 Community', `
     <div class="pm-modal-tabs">
@@ -434,7 +431,6 @@ async function loadFriendsList() {
 }
 
 async function loadPMHistory() {
-  // Fetch users who have sent PMs to me or received PMs from me
   const { data: sent } = await sb.from('private_messages').select('receiver_id').eq('sender_id', currentUser.user_id).limit(50);
   const { data: received } = await sb.from('private_messages').select('sender_id').eq('receiver_id', currentUser.user_id).limit(50);
   
@@ -442,7 +438,7 @@ async function loadPMHistory() {
   sent.forEach(m => userIds.add(m.receiver_id));
   received.forEach(m => userIds.add(m.sender_id));
   userIds.delete(currentUser.user_id);
-  userIds.delete(1); // Hide admin from history list for cleaner UI
+  userIds.delete(1); 
 
   let historyHtml = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No history yet.</p>';
   
@@ -523,7 +519,7 @@ window.removeFriend = async (id, name) => {
   loadFriendsList();
 };
 
-// --- Dots & Services Logic ---
+// --- Dots, Services & Games Logic ---
 el('tb-dots').onclick = () => {
   const bal = parseFloat(currentUser.currency || 0).toFixed(2);
   openModal('Dots & Services', `
@@ -541,6 +537,13 @@ el('tb-dots').onclick = () => {
         <div style="font-size:11px; color:var(--muted);">Transfer to another user (10% tax)</div>
       </div>
     </div>
+    <div class="list-row" onclick="openGamesModal()">
+      <span style="font-size:20px;">🎮</span>
+      <div style="flex:1; margin-left:10px;">
+        <div style="font-weight:600; font-size:14px;">Games</div>
+        <div style="font-size:11px; color:var(--muted);">Play Roulette & RPS</div>
+      </div>
+    </div>
     <div class="list-row" onclick="alert('Coming soon!')">
       <span style="font-size:20px;">🛍️</span>
       <div style="flex:1; margin-left:10px;">
@@ -556,6 +559,143 @@ el('tb-dots').onclick = () => {
       </div>
     </div>
   `);
+};
+
+window.openGamesModal = () => {
+  openModal('Games', `
+    <div class="list-row" onclick="openRouletteModal()">
+      <span style="font-size:20px;">🎰</span>
+      <div style="flex:1; margin-left:10px;">
+        <div style="font-weight:600; font-size:14px;">Roulette</div>
+        <div style="font-size:11px; color:var(--muted);">Bet on Even/Odd, Dozens, or Exact Number</div>
+      </div>
+    </div>
+    <div class="list-row" onclick="openRPSModal()">
+      <span style="font-size:20px;">✊</span>
+      <div style="flex:1; margin-left:10px;">
+        <div style="font-weight:600; font-size:14px;">Rock Paper Scissors</div>
+        <div style="font-size:11px; color:var(--muted);">Simple 2x payout game</div>
+      </div>
+    </div>
+  `);
+};
+
+window.openRouletteModal = () => {
+  openModal('Roulette', `
+    <label class="field">Bet Type</label>
+    <select id="rl-type" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);">
+      <option value="even">Even (2x)</option>
+      <option value="odd">Odd (2x)</option>
+      <option value="dozen1">1-12 (3x)</option>
+      <option value="dozen2">13-24 (3x)</option>
+      <option value="dozen3">25-36 (3x)</option>
+      <option value="number">Exact Number 0-36 (36x)</option>
+    </select>
+    <div id="rl-num-wrap" class="hidden" style="margin-top:10px;">
+      <label class="field">Number (0-36)</label>
+      <input type="number" id="rl-num" min="0" max="36" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);" />
+    </div>
+    <label class="field">Bet Amount (Ð)</label>
+    <input type="number" id="rl-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);" />
+    <button class="btn" onclick="playRoulette()">Spin 🎲</button>
+    <div id="rl-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>
+  `);
+  document.getElementById('rl-type').addEventListener('change', (e) => {
+    document.getElementById('rl-num-wrap').classList.toggle('hidden', e.target.value !== 'number');
+  });
+};
+
+window.playRoulette = async () => {
+  const type = document.getElementById('rl-type').value;
+  const num = document.getElementById('rl-num') ? parseInt(document.getElementById('rl-num').value) : 0;
+  const amt = parseFloat(document.getElementById('rl-amt').value);
+  
+  if(!amt || amt <= 0) return alert('Invalid bet amount.');
+  if(amt > currentUser.currency) return alert('Not enough dots.');
+  if(type === 'number' && (isNaN(num) || num < 0 || num > 36)) return alert('Invalid number (0-36).');
+
+  const { data: updatedUser, error: e1 } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single();
+  if (e1) return alert('Error processing bet.');
+  currentUser = updatedUser;
+
+  const result = Math.floor(Math.random() * 37); 
+  let win = false;
+  let multiplier = 0;
+
+  if (type === 'even' && result !== 0 && result % 2 === 0) { win = true; multiplier = 2; }
+  else if (type === 'odd' && result % 2 === 1) { win = true; multiplier = 2; }
+  else if (type === 'dozen1' && result >= 1 && result <= 12) { win = true; multiplier = 3; }
+  else if (type === 'dozen2' && result >= 13 && result <= 24) { win = true; multiplier = 3; }
+  else if (type === 'dozen3' && result >= 25 && result <= 36) { win = true; multiplier = 3; }
+  else if (type === 'number' && result === num) { win = true; multiplier = 36; }
+
+  let resultText = `Result: ${result}. You ${win ? 'WON' : 'LOST'}.`;
+  if (win) {
+    const payout = amt * multiplier;
+    const { data: finalUser } = await sb.from('app_users').update({ currency: currentUser.currency + payout }).eq('user_id', currentUser.user_id).select().single();
+    currentUser = finalUser;
+    resultText += ` +${payout.toFixed(2)} Ð`;
+  }
+
+  document.getElementById('rl-res').textContent = resultText;
+  document.getElementById('rl-res').style.color = win ? '#16a34a' : '#ef4444';
+};
+
+window.openRPSModal = () => {
+  openModal('Rock Paper Scissors', `
+    <p style="font-size:13px; color:var(--muted); text-align:center; margin-bottom:15px;">Choose your weapon. Win 2x your bet.</p>
+    <label class="field">Bet Amount (Ð)</label>
+    <input type="number" id="rps-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); margin-bottom:15px;" />
+    <div style="display:flex; gap:10px;">
+      <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('rock')">✊</button>
+      <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button>
+      <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button>
+    </div>
+    <div id="rps-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>
+  `);
+};
+
+window.playRPS = async (choice) => {
+  const amt = parseFloat(document.getElementById('rps-amt').value);
+  if(!amt || amt <= 0) return alert('Invalid bet amount.');
+  if(amt > currentUser.currency) return alert('Not enough dots.');
+
+  const { data: updatedUser, error: e1 } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single();
+  if (e1) return alert('Error processing bet.');
+  currentUser = updatedUser;
+
+  const choices = ['rock', 'paper', 'scissors'];
+  const botChoice = choices[Math.floor(Math.random() * 3)];
+  
+  let win = false;
+  let tie = false;
+
+  if (choice === botChoice) tie = true;
+  else if (
+    (choice === 'rock' && botChoice === 'scissors') ||
+    (choice === 'paper' && botChoice === 'rock') ||
+    (choice === 'scissors' && botChoice === 'paper')
+  ) win = true;
+
+  const icons = { rock: '✊', paper: '✋', scissors: '✌️' };
+  let resultText = `You: ${icons[choice]} | Bot: ${icons[botChoice]}<br>`;
+  
+  if (tie) {
+    resultText += 'TIE! Bet returned.';
+    const { data: finalUser } = await sb.from('app_users').update({ currency: currentUser.currency + amt }).eq('user_id', currentUser.user_id).select().single();
+    currentUser = finalUser;
+  } else if (win) {
+    const payout = amt * 2;
+    const { data: finalUser } = await sb.from('app_users').update({ currency: currentUser.currency + payout }).eq('user_id', currentUser.user_id).select().single();
+    currentUser = finalUser;
+    resultText += `WIN! +${payout.toFixed(2)} Ð`;
+  } else {
+    resultText += 'LOST!';
+  }
+
+  const resEl = document.getElementById('rps-res');
+  resEl.innerHTML = resultText;
+  resEl.style.color = tie ? '#ca8a04' : (win ? '#16a34a' : '#ef4444');
 };
 
 window.openTransferDotsModal = () => {
@@ -844,8 +984,7 @@ window.transferOwnership = async () => {
   el('tb-roominfo').click();
 };
 
-// --- Other UI Placeholders ---
-el('tb-games').onclick = () => { openModal('Games', '<p style="text-align:center;color:var(--muted)">Games will be added next.</p>'); };
+// --- Admin UI Placeholder ---
 el('tb-admin').onclick = () => { openModal('Admin Panel', '<p style="text-align:center;color:var(--muted)">Admin panel will be added next.</p>'); };
 
 function openModal(t,b,wide){el('modal-root').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()"><div class="modal-card ${wide?'wide':''}"><span class="close-x" onclick="closeModal()">✕</span><h3 style="margin:0 0 16px;font-size:16px;">${t}</h3>${b}</div></div>`;}
