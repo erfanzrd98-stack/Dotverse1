@@ -35,7 +35,7 @@
   #topbar-mobile{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);background:#fff;flex-shrink:0;overflow-x:auto;}
   .topbar-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:9px 4px;cursor:pointer;color:var(--muted);min-width:52px;}
   .topbar-btn .tb-icon{font-size:18px;}
-  .topbar-btn .tb-label{font-size:8.5px;font-weight:700; display:flex; align-items:center; gap:3px;}
+  .topbar-btn .tb-label{font-size:8.5px;font-weight:700;}
   .topbar-btn.hidden{display:none;}
   
   #main{flex:1;display:flex;flex-direction:column;min-height:0;}
@@ -138,13 +138,7 @@
     <div class="topbar-btn" id="tb-profile"><span class="tb-icon">👤</span><span class="tb-label">Profile</span></div>
     <div class="topbar-btn" id="tb-pms"><span class="tb-icon">👥</span><span class="tb-label">PMs</span></div>
     <div class="topbar-btn" id="tb-rooms"><span class="tb-icon">💬</span><span class="tb-label">Rooms</span></div>
-    <div class="topbar-btn" id="tb-dots">
-      <span class="tb-icon">🪙</span>
-      <span class="tb-label">
-        <span id="tb-dots-count">0</span>
-        <span style="font-size:12px; cursor:pointer;" onclick="event.stopPropagation(); refreshBalance(event)">🔄</span>
-      </span>
-    </div>
+    <div class="topbar-btn" id="tb-dots"><span class="tb-icon">🪙</span><span class="tb-label">Dots</span></div>
     <div class="topbar-btn" id="tb-games"><span class="tb-icon">🎮</span><span class="tb-label">Games</span></div>
     <div class="topbar-btn hidden" id="tb-admin"><span class="tb-icon">👑</span><span class="tb-label">Admin</span></div>
     <div class="topbar-btn" id="tb-roominfo"><span class="tb-icon">ℹ️</span><span class="tb-label">Room</span></div>
@@ -214,14 +208,8 @@ async function startApp(){
   el('auth-screen').classList.add('hidden');
   el('shell').classList.remove('hidden');
   if(currentUser.is_admin) el('tb-admin').classList.remove('hidden');
-  updateTopBar();
   joinRoom(1);
   subscribeToPMs();
-}
-
-function updateTopBar(){
-  const dots = parseFloat(currentUser.currency || 0).toFixed(2);
-  el('tb-dots-count').textContent = currentUser.is_admin ? '∞' : dots;
 }
 
 // --- Rating & Color Logic ---
@@ -279,7 +267,7 @@ async function getUserData(userId) {
   const cached = userCache[userId];
   const now = Date.now();
   if (cached && cached._ts && (now - cached._ts < 15000)) return cached;
-  const { data } = await sb.from('app_users').select('username, avatar_url, id_color, is_admin, rating_points, gender').eq('user_id', userId).single();
+  const { data } = await sb.from('app_users').select('user_id, username, avatar_url, id_color, is_admin, rating_points, gender').eq('user_id', userId).single();
   userCache[userId] = data || { username: 'Unknown', avatar_url: '🙂', id_color: '#000' };
   userCache[userId]._ts = now;
   return userCache[userId];
@@ -299,18 +287,19 @@ async function appendMessage(m, isRealtime){
 
   let uData = m.sender || m.app_users;
   if (m.user_id === currentUser.user_id) {
-    uData = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, is_admin: currentUser.is_admin };
+    uData = { user_id: currentUser.user_id, username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, is_admin: currentUser.is_admin };
   } else if (!uData && m.user_id) {
     uData = await getUserData(m.user_id);
   }
   
+  const userId = uData ? uData.user_id : (m.user_id || '');
   const username = uData ? uData.username : (m.username || 'Unknown');
   const avatarHtml = uData && uData.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (uData ? (uData.avatar_url || '🙂') : '🙂');
   const nameColor = uData ? (uData.id_color || '#000') : '#000';
   
   div.className = 'msg';
-  div.innerHTML = `<span class="avatar-emoji" onclick="showCtx(event,'${username}')">${avatarHtml}</span>
-                   <div class="msg-body"><span class="msg-name" style="color:${nameColor}" onclick="showCtx(event,'${username}')">${escapeHtml(username)}</span><span class="msg-text">${escapeHtml(m.content)}</span></div>`;
+  div.innerHTML = `<span class="avatar-emoji" onclick="showCtx(event,'${username}', '${userId}')">${avatarHtml}</span>
+                   <div class="msg-body"><span class="msg-name" style="color:${nameColor}" onclick="showCtx(event,'${username}', '${userId}')">${escapeHtml(username)}</span><span class="msg-text">${escapeHtml(m.content)}</span></div>`;
   w.appendChild(div);
   if (isRealtime) w.scrollTop = w.scrollHeight;
 }
@@ -477,22 +466,22 @@ el('tb-dots').onclick = () => {
 
 window.openTransferDotsModal = () => {
   openModal('Send Dots',`
-    <label class="field">Recipient Username</label><input type="text" id="td-to" placeholder="e.g. DotMaster" />
+    <label class="field">Recipient ID Number</label><input type="number" id="td-to" placeholder="e.g. 2" />
     <label class="field">Amount (Ð)</label><input type="number" id="td-amt" placeholder="e.g. 1.50" step="0.01" min="0.01" />
     <p style="font-size:12px;color:var(--muted);margin-top:5px;">10% tax applies. Receiver gets 90%.</p>
     <button class="btn" onclick="transferDots()">Send</button>`);
 };
 
 window.transferDots = async () => {
-  const to = el('td-to').value.trim();
+  const toId = parseInt(el('td-to').value);
   const amt = parseFloat(el('td-amt').value);
   
-  if(!to || !amt || amt <= 0) return alert('Invalid input.');
+  if(!toId || !amt || amt <= 0) return alert('Invalid input.');
   if(amt > currentUser.currency) return alert('Not enough dots.');
+  if(toId === currentUser.user_id) return alert('Cannot send to yourself.');
   
-  const { data: receiver } = await sb.from('app_users').select('*').eq('username', to).single();
+  const { data: receiver } = await sb.from('app_users').select('*').eq('user_id', toId).single();
   if (!receiver) return alert('Receiver not found.');
-  if (receiver.user_id === currentUser.user_id) return alert('Cannot send to yourself.');
 
   const tax = amt * 0.1;
   const receiverGets = amt - tax;
@@ -500,23 +489,22 @@ window.transferDots = async () => {
   const { data: updatedSender, error: e1 } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single();
   if(e1) return alert('Error sending dots.');
   
-  await sb.from('app_users').update({ currency: receiver.currency + receiverGets }).eq('user_id', receiver.user_id);
+  await sb.from('app_users').update({ currency: receiver.currency + receiverGets }).eq('user_id', toId);
   
   const { data: admin } = await sb.from('app_users').select('currency').eq('user_id', 1).single();
   if (admin) await sb.from('app_users').update({ currency: admin.currency + tax }).eq('user_id', 1);
 
   currentUser = updatedSender;
-  updateTopBar();
-  alert(`Success! Sent ${amt}Ð to ${to}. They received ${receiverGets.toFixed(2)}Ð.`);
+  alert(`Success! Sent ${amt}Ð to ID #${toId}. They received ${receiverGets.toFixed(2)}Ð.`);
   closeModal();
-  el('tb-dots').click();
+  el('tb-dots').click(); // Re-open main dots menu to show new balance
 };
 
-window.sendDotsPrompt = (u) => { 
+window.sendDotsPrompt = (id) => { 
   el('tb-dots').click(); 
   setTimeout(() => { 
     openTransferDotsModal();
-    el('td-to').value = u; 
+    el('td-to').value = id; 
   }, 200); 
 };
 
@@ -525,7 +513,6 @@ window.refreshBalance = async (e) => {
   const { data, error } = await sb.from('app_users').select('currency').eq('user_id', currentUser.user_id).single();
   if(!error && data) {
     currentUser.currency = data.currency;
-    updateTopBar();
     const modalTitle = el('modal-root').querySelector('h3');
     if (modalTitle && modalTitle.textContent === 'Dots & Services') {
       el('tb-dots').click(); // Re-open modal to refresh balance text
@@ -615,7 +602,6 @@ window.saveProfile = async () => {
   currentUser = data;
   userCache[currentUser.user_id] = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, _ts: Date.now() };
   
-  updateTopBar();
   alert('Saved successfully!');
   closeModal();
 };
@@ -638,7 +624,7 @@ el('tb-admin').onclick = () => { openModal('Admin Panel', '<p style="text-align:
 function openModal(t,b,wide){el('modal-root').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()"><div class="modal-card ${wide?'wide':''}"><span class="close-x" onclick="closeModal()">✕</span><h3 style="margin:0 0 16px;font-size:16px;">${t}</h3>${b}</div></div>`;}
 function closeModal(){el('modal-root').innerHTML='';}
 
-function showCtx(e,u){
+function showCtx(e, u, uid){
   e.stopPropagation();
   const m=document.createElement('div');
   m.className='ctx-menu';
@@ -647,7 +633,7 @@ function showCtx(e,u){
     <div class="ctx-item" onclick="startNewPM('${u}');closeCtx();">💬 Private Message</div>
     <div class="ctx-item" onclick="alert('Profile view coming soon!');closeCtx();">👤 View Profile</div>
     <div class="ctx-item" onclick="addFriend('${u}');closeCtx();">➕ Add Friend</div>
-    <div class="ctx-item" onclick="sendDotsPrompt('${u}');closeCtx();">🪙 Send Dots</div>`;
+    <div class="ctx-item" onclick="sendDotsPrompt('${uid}');closeCtx();">🪙 Send Dots</div>`;
   el('context-root').innerHTML='';el('context-root').appendChild(m);
 }
 function closeCtx(){el('context-root').innerHTML='';}
