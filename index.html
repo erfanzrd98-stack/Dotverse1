@@ -66,23 +66,6 @@
   .ctx-item{padding:9px 12px;font-size:13px;font-weight:600;border-radius:7px;cursor:pointer;}
   .ctx-item:hover{background:#f4f5f7;}
   
-  /* Center PM Popups Stack */
-  #pm-popup-root{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:120;display:flex;flex-direction:column;gap:10px;align-items:center;}
-  .pm-popup-card{width:fit-content;min-width:220px;max-width:320px;border:1px solid rgba(0,0,0,0.5);box-shadow:2px 3px 8px rgba(0,0,0,0.45);display:flex;flex-direction:column;background:#fff;}
-  .pm-popup-header{display:flex;justify-content:space-between;align-items:center;padding:0 0 0 8px;color:#fff;font-size:14px;font-weight:bold;height:26px;}
-  .pm-popup-close{width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:#000;}
-  .pm-popup-text{padding:12px;color:#000;font-size:12px;text-align:center;display:flex;align-items:center;justify-content:center;line-height:1.4;min-height:40px;}
-  .pm-popup-actions{display:flex;height:28px;}
-  .pm-popup-actions button{flex:1;color:#000;border:2px outset;font-size:12px;cursor:pointer;font-family:inherit;font-weight:bold;white-space:nowrap;}
-  .pm-popup-reply-box{display:flex;height:28px;}
-  .pm-popup-reply-box input{flex:1;padding:4px 8px;border:1px solid #ccc;font-size:12px;outline:none;font-family:inherit;}
-  .pm-popup-reply-box button{width:60px;color:#000;border:2px outset;font-size:12px;cursor:pointer;font-family:inherit;font-weight:bold;white-space:nowrap;}
-  
-  /* PM History View */
-  .pm-history-view{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:16px;}
-  .pm-history-msg{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;word-break:break-word;color:#000;}
-  .pm-history-msg b{font-size:10px;display:block;margin-bottom:2px;opacity:0.8;}
-
   /* My Profile Styles */
   .p-row{display:flex;align-items:center;border-bottom:1px solid #f4f5f7;padding:10px 0;min-height:40px;}
   .p-label{width:45%;font-size:13px;color:var(--muted);font-weight:600;border-right:1px solid var(--line);padding-right:10px;text-align:right;}
@@ -97,31 +80,6 @@
   .p-color-grid{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:140px;}
   .p-color-opt{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
   .p-color-opt.selected{border-color:var(--ink);}
-
-  /* View Profile Styles */
-  .vp-card{width:260px;background:#fff;border-radius:12px;padding:16px;box-shadow:0 4px 15px rgba(0,0,0,0.05); margin:0 auto;}
-  .vp-row{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f4f5f7;padding:8px 0;}
-  .vp-label{width:50%;font-size:12px;color:var(--muted);font-weight:600;text-align:left;border-right:1px solid var(--line);padding-right:10px;}
-  .vp-val{width:50%;display:flex;justify-content:flex-end;padding-left:10px;}
-  .vp-bubble{background:var(--dot-soft);color:var(--dot);padding:4px 12px;border-radius:20px;font-weight:700;font-size:12px;text-align:center;}
-  .vp-btn-row{display:flex;gap:5px;margin-top:16px;}
-  .vp-btn{flex:1;padding:8px 4px;border:none;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit;}
-  .vp-btn-pm{background:var(--dot);color:#fff;}
-  .vp-btn-dots{background:#f4f5f7;color:var(--ink);}
-  .vp-btn-friend{background:#eef0ff;color:var(--dot);}
-
-  /* PM Modal Tabs & List */
-  .pm-modal-tabs{display:flex;gap:4px;margin-bottom:20px;background:#f4f5f7;border-radius:10px;padding:3px;}
-  .pm-modal-tab{flex:1;text-align:center;padding:8px 0;font-size:13.5px;font-weight:600;border-radius:8px;cursor:pointer;color:var(--muted);}
-  .pm-modal-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1);}
-  .friend-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f4f5f7;}
-  .friend-info{display:flex;align-items:center;gap:10px;}
-  .friend-av{font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--dot-soft);border-radius:50%;}
-  .friend-name{font-weight:600;font-size:14px;}
-  .friend-actions{display:flex;gap:4px;}
-  .act-btn{border:none;background:#f4f5f7;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
-  .act-btn.danger{background:#fee2e2;color:#ef4444;}
-  .act-btn.primary{background:var(--dot);color:#fff;}
 </style>
 </head>
 <body>
@@ -152,7 +110,7 @@
 
 <div id="shell" class="hidden">
   <div id="topbar-mobile">
-    <div class="topbar-btn" id="tb-profile"><span class="tb-icon" id="tb-profile-avatar">🙂</span><span class="tb-label">Profile</span></div>
+    <div class="topbar-btn" id="tb-profile"><span class="tb-icon">👤</span><span class="tb-label">Profile</span></div>
     <div class="topbar-btn" id="tb-pms"><span class="tb-icon">👥</span><span class="tb-label">PMs</span></div>
     <div class="topbar-btn" id="tb-rooms"><span class="tb-icon">💬</span><span class="tb-label">Rooms</span></div>
     <div class="topbar-btn" id="tb-dots"><span class="tb-icon">🪙</span><span class="tb-label" id="tb-dots-count">0</span></div>
@@ -174,7 +132,6 @@
 
 <div id="modal-root"></div>
 <div id="context-root"></div>
-<div id="pm-popup-root"></div>
 
 <script>
 // Supabase Initialization
@@ -183,7 +140,9 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null, currentRoom = 1, msgSubscription = null;
-const userCache = {}; // For caching user data in real-time
+const userCache = {}; 
+const AVATARS = ["🦊","🦄","🐰","🐭","🍄","☢️","🌼","♥️","♠️","♣️","♦️","👺","👻","👽","⛄","💀","👤","🧑🏻‍🚀","🧒🏻","👩🏻","🍁","🍀","🌲","⚡","🐥","🛡️","♂️","♀️"];
+const COLORS = ["#000000", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280", "#f5780e"];
 
 function el(id){return document.getElementById(id);}
 function escapeHtml(s){const d=document.createElement('div');d.textContent=s??'';return d.innerHTML;}
@@ -227,7 +186,6 @@ async function startApp(){
 }
 
 function updateTopBar(){
-  el('tb-profile-avatar').textContent = currentUser.is_admin ? '👑' : (currentUser.avatar_url||'🙂');
   el('tb-dots-count').textContent = currentUser.is_admin ? '∞' : currentUser.currency;
 }
 
@@ -266,7 +224,6 @@ async function loadMessages(){
   w.scrollTop = w.scrollHeight;
 }
 
-// Get user data for real-time messages
 async function getUserData(userId) {
   if (userCache[userId]) return userCache[userId];
   const { data } = await sb.from('app_users').select('username, avatar_url, id_color').eq('user_id', userId).single();
@@ -278,7 +235,7 @@ async function appendMessage(m, isRealtime){
   const w = el('messages');
   const div = document.createElement('div');
   
-  if (!m.user_id) { // System Message
+  if (!m.user_id) { 
     div.className = 'sys-msg';
     div.textContent = m.content;
     w.appendChild(div);
@@ -287,7 +244,6 @@ async function appendMessage(m, isRealtime){
   }
 
   let uData = m.sender || m.app_users;
-  // If it's a real-time message and lacks user data, fetch from DB
   if (!uData && m.user_id) {
     uData = await getUserData(m.user_id);
   }
@@ -313,7 +269,74 @@ el('btn-send').onclick = async () => {
 };
 el('msg-input').addEventListener('keydown', e => { if(e.key==='Enter') el('btn-send').click(); });
 
-// --- Placeholder Functions for UI (Will be implemented next) ---
+// --- Profile Logic ---
+el('tb-profile').onclick = () => {
+  const isMaster = currentUser.is_admin;
+  let avHtml = isMaster ? `<select class="p-select" disabled><option selected>👑</option></select>` : `<select id="p-avatar" class="p-select" onchange="window._av=this.value">${AVATARS.map(a => `<option value="${a}" ${currentUser.avatar_url===a?'selected':''}>${a}</option>`).join('')}</select>`;
+  let coHtml = `<div class="p-color-grid" id="p-color-grid">${COLORS.map(c => `<span class="p-color-opt ${currentUser.id_color===c?'selected':''}" style="background:${c}" onclick="selColor('${c}', this)"></span>`).join('')}</div>`;
+  let genderHtml = `<select id="p-gender" class="p-select" onchange="window._gender=this.value"><option value="male" ${currentUser.gender==='male'?'selected':''}>Male</option><option value="female" ${currentUser.gender==='female'?'selected':''}>Female</option></select>`;
+  
+  openModal('👤 Your Profile',`
+    <div style="max-width:320px;margin:0 auto;">
+      <div class="p-row"><span class="p-label">Username</span><div class="p-val"><input type="text" id="p-username" class="p-input" value="${escapeHtml(currentUser.username)}"></div></div>
+      <div class="p-row"><span class="p-label">Password</span><div class="p-val"><input type="password" id="p-password" class="p-input" placeholder="••••••"></div></div>
+      <div class="p-row"><span class="p-label">Gender</span><div class="p-val">${genderHtml}</div></div>
+      <div class="p-row"><span class="p-label">City</span><div class="p-val"><input type="text" id="p-city" class="p-input" value="${escapeHtml(currentUser.city||'')}"></div></div>
+      <div class="p-row"><span class="p-label">Name color</span><div class="p-val">${coHtml}</div></div>
+      <div class="p-row"><span class="p-label">Avatar</span><div class="p-val">${avHtml}</div></div>
+      <div class="p-row"><span class="p-label">ID Number</span><div class="p-val"><span class="p-bubble">#${currentUser.user_id}</span></div></div>
+      <div class="p-row"><span class="p-label">Dots</span><div class="p-val"><span class="p-bubble">${currentUser.is_admin?'∞':currentUser.currency}</span></div></div>
+      <div class="p-row" style="border-bottom:none;"><span class="p-label">Rating</span><div class="p-val"><span class="p-bubble">${currentUser.rating_points}</span></div></div>
+      <div class="p-btn-row">
+        <button class="p-btn p-btn-logout" onclick="location.reload()">Logout</button>
+        <button class="p-btn p-btn-save" onclick="saveProfile()">Save Changes</button>
+      </div>
+    </div>`);
+  window._av = currentUser.avatar_url || '🙂'; 
+  window._co = currentUser.id_color || '#000000'; 
+  window._gender = currentUser.gender || 'male';
+};
+
+window.selColor = (c, e) => {
+  window._co = c;
+  e.parentElement.querySelectorAll('.p-color-opt').forEach(x => x.classList.remove('selected'));
+  e.classList.add('selected');
+};
+
+window.saveProfile = async () => {
+  let finalAvatar = window._av;
+  if(currentUser.is_admin) finalAvatar = '👑';
+  
+  const newUsername = el('p-username').value.trim();
+  const newPassword = el('p-password').value;
+  
+  if(newUsername.length < 3 || newUsername.length > 14) return alert('Username must be 3-14 chars.');
+  if(newPassword && (newPassword.length < 3 || newPassword.length > 14)) return alert('Password must be 3-14 chars.');
+
+  const updates = {
+    username: newUsername,
+    gender: window._gender,
+    city: el('p-city').value.trim(),
+    id_color: window._co,
+    avatar_url: finalAvatar
+  };
+  
+  if(newPassword) updates.password = newPassword;
+
+  const { data, error } = await sb.from('app_users').update(updates).eq('user_id', currentUser.user_id).select().single();
+  
+  if(error) {
+    if(error.message.includes('duplicate')) return alert('Username already exists.');
+    return alert('Error: ' + error.message);
+  }
+  
+  currentUser = data;
+  updateTopBar();
+  alert('Saved successfully!');
+  closeModal();
+};
+
+// --- Other UI Placeholders ---
 el('tb-rooms').onclick = async () => {
   const { data } = await sb.from('rooms').select('*').order('rating_points', { ascending: false });
   let rows = '';
@@ -324,7 +347,6 @@ el('tb-rooms').onclick = async () => {
   openModal('Chat Rooms', rows);
 };
 
-el('tb-profile').onclick = () => { openModal('Profile', '<p style="text-align:center;color:var(--muted)">Profile editing will be added next.</p>'); };
 el('tb-pms').onclick = () => { openModal('Private Messages', '<p style="text-align:center;color:var(--muted)">PM system will be added next.</p>'); };
 el('tb-dots').onclick = () => { openModal('Dots', '<p style="text-align:center;color:var(--muted)">Dots transfer will be added next.</p>'); };
 el('tb-games').onclick = () => { openModal('Games', '<p style="text-align:center;color:var(--muted)">Games will be added next.</p>'); };
