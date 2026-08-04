@@ -221,10 +221,16 @@ async function loadMessages(){
   w.scrollTop = w.scrollHeight;
 }
 
+// Get user data with a 15-second expiration to balance speed and freshness
 async function getUserData(userId) {
-  if (userCache[userId]) return userCache[userId];
+  const cached = userCache[userId];
+  const now = Date.now();
+  if (cached && cached._ts && (now - cached._ts < 15000)) {
+    return cached;
+  }
   const { data } = await sb.from('app_users').select('username, avatar_url, id_color').eq('user_id', userId).single();
   userCache[userId] = data || { username: 'Unknown', avatar_url: '🙂', id_color: '#000' };
+  userCache[userId]._ts = now;
   return userCache[userId];
 }
 
@@ -241,7 +247,15 @@ async function appendMessage(m, isRealtime){
   }
 
   let uData = m.sender || m.app_users;
-  if (!uData && m.user_id) {
+  
+  // If the message is from the current user, use their absolute latest data
+  if (m.user_id === currentUser.user_id) {
+    uData = {
+      username: currentUser.username,
+      avatar_url: currentUser.avatar_url,
+      id_color: currentUser.id_color
+    };
+  } else if (!uData && m.user_id) {
     uData = await getUserData(m.user_id);
   }
   
@@ -273,7 +287,6 @@ el('tb-profile').onclick = () => {
   let coHtml = `<div class="p-color-grid" id="p-color-grid">${COLORS.map(c => `<span class="p-color-opt ${currentUser.id_color===c?'selected':''}" style="background:${c}" onclick="selColor('${c}', this)"></span>`).join('')}</div>`;
   let genderHtml = `<select id="p-gender" class="p-select" onchange="window._gender=this.value"><option value="male" ${currentUser.gender==='male'?'selected':''}>Male</option><option value="female" ${currentUser.gender==='female'?'selected':''}>Female</option></select>`;
   
-  // Exact logic for Verification Status
   let verifyHtml = '';
   if (currentUser.is_verified) {
     verifyHtml = `<span class="p-bubble" style="background:#dcfce7;color:#16a34a;">Verified ✔</span>`;
@@ -309,7 +322,7 @@ window.requestVerification = async () => {
   if(!error) {
     currentUser = data;
     alert('Request sent to Admin!');
-    el('tb-profile').click(); // Refresh modal to show "Pending..."
+    el('tb-profile').click();
   }
 };
 
@@ -347,6 +360,15 @@ window.saveProfile = async () => {
   }
   
   currentUser = data;
+  
+  // FIX: Immediately update the cache with the new profile data
+  userCache[currentUser.user_id] = {
+    username: currentUser.username,
+    avatar_url: currentUser.avatar_url,
+    id_color: currentUser.id_color,
+    _ts: Date.now()
+  };
+  
   updateTopBar();
   alert('Saved successfully!');
   closeModal();
