@@ -307,19 +307,20 @@ async function appendMessage(m, isRealtime){
 
   let uData = m.sender || m.app_users;
   if (m.user_id === currentUser.user_id) {
-    uData = { user_id: currentUser.user_id, username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, is_admin: currentUser.is_admin };
+    uData = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, is_admin: currentUser.is_admin };
   } else if (!uData && m.user_id) {
     uData = await getUserData(m.user_id);
   }
   
-  const userId = uData ? uData.user_id : (m.user_id || '');
+  // FIX: Always use m.user_id as it's the direct foreign key on the message
+  const userId = m.user_id;
   const username = uData ? uData.username : (m.username || 'Unknown');
   const avatarHtml = uData && uData.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (uData ? (uData.avatar_url || '🙂') : '🙂');
   const nameColor = uData ? (uData.id_color || '#000') : '#000';
   
   div.className = 'msg';
-  div.innerHTML = `<span class="avatar-emoji" onclick="showCtx(event,'${username}', '${userId}')">${avatarHtml}</span>
-                   <div class="msg-body"><span class="msg-name" style="color:${nameColor}" onclick="showCtx(event,'${username}', '${userId}')">${escapeHtml(username)}</span><span class="msg-text">${escapeHtml(m.content)}</span></div>`;
+  div.innerHTML = `<span class="avatar-emoji" onclick="showCtx(event,'${escapeHtml(username)}', '${userId}')">${avatarHtml}</span>
+                   <div class="msg-body"><span class="msg-name" style="color:${nameColor}" onclick="showCtx(event,'${escapeHtml(username)}', '${userId}')">${escapeHtml(username)}</span><span class="msg-text">${escapeHtml(m.content)}</span></div>`;
   w.appendChild(div);
   if (isRealtime) w.scrollTop = w.scrollHeight;
 }
@@ -365,12 +366,12 @@ function openPMPopup(sender, text, senderData) {
     </div>
     <div class="pm-popup-text" style="background:${scheme.body};">${escapeHtml(text)}</div>
     <div class="pm-popup-actions" id="actions-${popupId}">
-      <button style="background:${scheme.footer}; border-color:${scheme.border};" onclick="showReplyBox('${popupId}', '${sender}')">Reply</button>
+      <button style="background:${scheme.footer}; border-color:${scheme.border};" onclick="showReplyBox('${popupId}', '${escapeHtml(sender)}')">Reply</button>
       <button style="background:${scheme.footer}; border-color:${scheme.border};" onclick="viewProfile('${senderData.user_id}'); document.getElementById('${popupId}').remove();">About user</button>
     </div>
     <div class="pm-popup-reply-box hidden" id="reply-${popupId}">
       <input type="text" id="input-${popupId}" placeholder="Type reply..." />
-      <button style="background:${scheme.footer}; border-color:${scheme.border};" onclick="sendReply('${sender}', '${popupId}')">Send</button>
+      <button style="background:${scheme.footer}; border-color:${scheme.border};" onclick="sendReply('${escapeHtml(sender)}', '${popupId}')">Send</button>
     </div>`;
   popup.innerHTML = html;
   el('pm-popup-root').appendChild(popup);
@@ -741,7 +742,7 @@ window.openRPSModal = () => {
     <input type="number" id="rps-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); margin-bottom:15px;" />
     <div style="display:flex; gap:10px;">
       <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('rock')">✊</button>
-      <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playPMS('paper')">✋</button>
+      <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button>
       <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button>
     </div>
     <div id="rps-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>
@@ -1132,9 +1133,9 @@ function showCtx(e, u, uid){
   m.className='ctx-menu';
   m.style.left=e.clientX+'px';m.style.top=e.clientY+'px';
   m.innerHTML=`
-    <div class="ctx-item" onclick="startNewPM('${u}');closeCtx();">💬 Private Message</div>
+    <div class="ctx-item" onclick="startNewPM('${escapeHtml(u)}');closeCtx();">💬 Private Message</div>
     <div class="ctx-item" onclick="viewProfile('${uid}');closeCtx();">👤 View Profile</div>
-    <div class="ctx-item" onclick="addFriend('${u}');closeCtx();">➕ Add Friend</div>
+    <div class="ctx-item" onclick="addFriend('${escapeHtml(u)}');closeCtx();">➕ Add Friend</div>
     <div class="ctx-item" onclick="sendDotsPrompt('${uid}');closeCtx();">🪙 Send Dots</div>`;
   el('context-root').innerHTML='';el('context-root').appendChild(m);
 }
