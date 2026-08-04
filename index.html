@@ -548,7 +548,6 @@ el('tb-search').onclick = () => {
       <div class="pm-modal-tab" onclick="switchSearchTab('rooms', this)">Rooms</div>
       <div class="pm-modal-tab" onclick="switchSearchTab('leaderboard', this)">Top Users</div>
     </div>
-    
     <div id="search-users">
       <div style="display:flex; gap:8px; margin-bottom:15px;">
         <input type="text" id="usr-query" placeholder="Username or ID..." style="flex:1; padding:10px; border-radius:8px; border:1px solid var(--line);" />
@@ -556,7 +555,6 @@ el('tb-search').onclick = () => {
       </div>
       <div id="usr-results"><p style="color:var(--muted);text-align:center;font-size:13px;">Search to find users.</p></div>
     </div>
-    
     <div id="search-rooms" class="hidden">
       <div style="display:flex; gap:8px; margin-bottom:15px;">
         <input type="text" id="rm-query" placeholder="Room Name or ID..." style="flex:1; padding:10px; border-radius:8px; border:1px solid var(--line);" />
@@ -564,7 +562,6 @@ el('tb-search').onclick = () => {
       </div>
       <div id="rm-results"><p style="color:var(--muted);text-align:center;font-size:13px;">Search to find rooms.</p></div>
     </div>
-    
     <div id="search-leaderboard" class="hidden">
       <div id="lb-results"><p style="color:var(--muted);text-align:center;font-size:13px;">Loading...</p></div>
     </div>
@@ -725,6 +722,14 @@ el('tb-dots').onclick = () => {
       <span style="font-size:20px;">💸</span>
       <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Send Dots</div><div style="font-size:11px; color:var(--muted);">Transfer to another user (10% tax)</div></div>
     </div>
+    <div class="list-row" onclick="openShopModal()">
+      <span style="font-size:20px;">🛍️</span>
+      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Shop & Gifts</div><div style="font-size:11px; color:var(--muted);">Buy gifts with dots</div></div>
+    </div>
+    <div class="list-row" onclick="openAssetsModal()">
+      <span style="font-size:20px;">🎒</span>
+      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Assets</div><div style="font-size:11px; color:var(--muted);">View, sell or send your gifts</div></div>
+    </div>
     <div class="list-row" onclick="openGamesModal()">
       <span style="font-size:20px;">🎮</span>
       <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Games</div><div style="font-size:11px; color:var(--muted);">Play Roulette & RPS</div></div>
@@ -733,15 +738,118 @@ el('tb-dots').onclick = () => {
       <span style="font-size:20px;">🎁</span>
       <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Redeem Code</div><div style="font-size:11px; color:var(--muted);">Use a gift code</div></div>
     </div>
-    <div class="list-row" onclick="alert('Coming soon!')">
-      <span style="font-size:20px;">🛍️</span>
-      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Shop & Gifts</div><div style="font-size:11px; color:var(--muted);">Buy gifts and items</div></div>
-    </div>
-    <div class="list-row" onclick="alert('Coming soon!')">
-      <span style="font-size:20px;">🎒</span>
-      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Assets</div><div style="font-size:11px; color:var(--muted);">View and sell your gifts</div></div>
-    </div>
   `);
+};
+
+window.openShopModal = async () => {
+  const { data: gifts, error } = await sb.from('gifts').select('*');
+  if (error) return alert('Error loading shop.');
+  
+  const giftsHtml = gifts.map(g => `
+    <div class="friend-row" style="cursor:default;">
+      <span class="friend-av" style="background:transparent; font-size:24px;">${g.image_url}</span>
+      <div style="flex:1; margin-left:5px;">
+        <div style="font-weight:600; font-size:14px;">${escapeHtml(g.name)}</div>
+        <div style="font-size:11px; color:var(--muted);">Price: ${g.price} Ð · Stock: ${g.stock}</div>
+      </div>
+      <button class="btn-sm" style="opacity:${g.stock > 0 ? 1 : 0.5}; pointer-events:${g.stock > 0 ? 'auto' : 'none'};" onclick="buyGift('${g.id}')">Buy</button>
+    </div>
+  `).join('');
+  
+  openModal('🛍️ Shop', giftsHtml);
+};
+
+window.buyGift = async (giftId) => {
+  const { data: g } = await sb.from('gifts').select('*').eq('id', giftId).single();
+  if (!g) return alert('Gift not found.');
+  if (g.stock <= 0) return alert('Out of stock.');
+  if (currentUser.currency < g.price) return alert('Not enough dots.');
+  
+  const { data: inv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', currentUser.user_id).eq('gift_id', giftId).maybeSingle();
+  
+  const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - parseFloat(g.price) }).eq('user_id', currentUser.user_id).select().single();
+  currentUser = updatedUser;
+  
+  await sb.from('gifts').update({ stock: g.stock - 1 }).eq('id', giftId);
+  
+  if (inv) {
+    await sb.from('user_inventory').update({ quantity: inv.quantity + 1 }).eq('id', inv.id);
+  } else {
+    await sb.from('user_inventory').insert([{ user_id: currentUser.user_id, gift_id: giftId, quantity: 1 }]);
+  }
+  
+  alert(`Bought ${g.name}!`);
+  openShopModal();
+};
+
+window.openAssetsModal = async () => {
+  const { data: assets, error } = await sb.from('user_inventory').select('*, gifts(name, image_url, price)').eq('user_id', currentUser.user_id);
+  if (error || !assets || assets.length === 0) {
+    return openModal('🎒 Assets', '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No assets yet.</p>');
+  }
+  
+  const assetsHtml = assets.map(a => `
+    <div class="friend-row" style="cursor:default;">
+      <span class="friend-av" style="background:transparent; font-size:24px;">${a.gifts.image_url}</span>
+      <div style="flex:1; margin-left:5px;">
+        <div style="font-weight:600; font-size:14px;">${escapeHtml(a.gifts.name)} (x${a.quantity})</div>
+        <div style="font-size:11px; color:var(--muted);">Value: ${a.gifts.price} Ð</div>
+      </div>
+      <div style="display:flex; gap:5px;">
+        <button class="btn-sm" onclick="sellGift('${a.id}', '${a.gift_id}', ${a.quantity})">Sell</button>
+        <button class="btn-sm" style="background:var(--dot); color:#fff;" onclick="sendGiftPrompt('${a.gift_id}', '${escapeHtml(a.gifts.name)}')">Send</button>
+      </div>
+    </div>
+  `).join('');
+  
+  openModal('🎒 Assets', assetsHtml);
+};
+
+window.sellGift = async (inventoryId, giftId, currentQty) => {
+  const { data: g } = await sb.from('gifts').select('*').eq('id', giftId).single();
+  if (!g) return alert('Gift data not found.');
+  
+  const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency + parseFloat(g.price) }).eq('user_id', currentUser.user_id).select().single();
+  currentUser = updatedUser;
+  
+  await sb.from('gifts').update({ stock: g.stock + 1 }).eq('id', giftId);
+  
+  if (currentQty > 1) {
+    await sb.from('user_inventory').update({ quantity: currentQty - 1 }).eq('id', inventoryId);
+  } else {
+    await sb.from('user_inventory').delete().eq('id', inventoryId);
+  }
+  
+  alert(`Sold ${g.name}! +${g.price} Ð.`);
+  openAssetsModal();
+};
+
+window.sendGiftPrompt = async (giftId, giftName) => {
+  const recipientId = prompt(`Send ${giftName} to (Enter User ID):`);
+  if (!recipientId) return;
+  if (parseInt(recipientId) === currentUser.user_id) return alert('Cannot send to yourself.');
+  
+  const { data: recipient } = await sb.from('app_users').select('*').eq('user_id', parseInt(recipientId)).single();
+  if (!recipient) return alert('User not found.');
+  
+  const { data: senderInv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', currentUser.user_id).eq('gift_id', giftId).maybeSingle();
+  if (!senderInv) return alert('You do not own this gift.');
+  
+  if (senderInv.quantity > 1) {
+    await sb.from('user_inventory').update({ quantity: senderInv.quantity - 1 }).eq('id', senderInv.id);
+  } else {
+    await sb.from('user_inventory').delete().eq('id', senderInv.id);
+  }
+  
+  const { data: recInv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', recipient.user_id).eq('gift_id', giftId).maybeSingle();
+  if (recInv) {
+    await sb.from('user_inventory').update({ quantity: recInv.quantity + 1 }).eq('id', recInv.id);
+  } else {
+    await sb.from('user_inventory').insert([{ user_id: recipient.user_id, gift_id: giftId, quantity: 1 }]);
+  }
+  
+  alert(`Gift sent to ${recipient.username}!`);
+  openAssetsModal();
 };
 
 window.openRedeemModal = () => {
@@ -1100,6 +1208,7 @@ el('tb-admin').onclick = async () => {
       <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Tax Balance:</span><b>${parseFloat(treasury.tax_balance).toFixed(2)} Ð</b></div>
       <div style="display:flex; justify-content:space-between;"><span>Fund Balance:</span><b>${parseFloat(treasury.fund_balance).toFixed(2)} Ð</b></div>
     </div>
+    <div class="list-row" onclick="adminManageGiftsPrompt()"><span style="font-size:20px;">🛍️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Manage Gifts</div><div style="font-size:11px; color:var(--muted);">Change price or stock</div></div></div>
     <div class="list-row" onclick="adminMintPrompt()"><span style="font-size:20px;">🖨️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Mint Dots</div><div style="font-size:11px; color:var(--muted);">Create new dots to Treasury</div></div></div>
     <div class="list-row" onclick="adminRewardPrompt()"><span style="font-size:20px;">🎁</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Give Reward</div><div style="font-size:11px; color:var(--muted);">Reward user from Treasury</div></div></div>
     <div class="list-row" onclick="adminCreateCodePrompt()"><span style="font-size:20px;">🎟️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Create Redeem Code</div><div style="font-size:11px; color:var(--muted);">Generate gift codes</div></div></div>
@@ -1113,6 +1222,32 @@ el('tb-admin').onclick = async () => {
     <div class="list-row" onclick="adminClearRoomPrompt()"><span style="font-size:20px;">🧹</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Clear Room Messages</div><div style="font-size:11px; color:var(--muted);">Delete all chats</div></div></div>
     <div class="list-row" onclick="adminDeleteRoomPrompt()"><span style="font-size:20px;">🗑️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Delete Room</div><div style="font-size:11px; color:var(--muted);">Remove room</div></div></div>
   `);
+};
+
+window.adminManageGiftsPrompt = async () => {
+  const { data: gifts } = await sb.from('gifts').select('*');
+  let html = gifts.map(g => `
+    <div class="friend-row" style="cursor:default;">
+      <span class="friend-av" style="background:transparent; font-size:24px;">${g.image_url}</span>
+      <div style="flex:1; margin-left:5px;">
+        <div style="font-weight:600; font-size:14px;">${escapeHtml(g.name)}</div>
+        <div style="font-size:11px; color:var(--muted);">Price: ${g.price} Ð | Stock: ${g.stock}</div>
+      </div>
+      <button class="btn-sm" onclick="adminEditGiftPrompt('${g.id}', '${escapeHtml(g.name)}')">Edit</button>
+    </div>
+  `).join('');
+  openModal('Manage Gifts', html);
+};
+
+window.adminEditGiftPrompt = async (id, name) => {
+  const newPrice = prompt(`Enter new price for ${name}:`);
+  if(newPrice === null) return;
+  const newStock = prompt(`Enter new stock for ${name}:`);
+  if(newStock === null) return;
+  
+  await sb.from('gifts').update({ price: parseFloat(newPrice), stock: parseInt(newStock) }).eq('id', id);
+  alert('Gift updated!');
+  adminManageGiftsPrompt();
 };
 
 window.adminMintPrompt = async () => { const amt = prompt('Amount to Mint:', '100'); const target = prompt('Mint to (tax/fund):', 'fund'); const treasury = await getTreasury(); if(target === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) + parseFloat(amt) }); else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(amt) }); alert('Minted!'); el('tb-admin').click(); };
