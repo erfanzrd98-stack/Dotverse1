@@ -39,6 +39,7 @@
   .topbar-btn.hidden{display:none;}
   
   #main{flex:1;display:flex;flex-direction:column;min-height:0;}
+  #broadcast-root{background:#fffae6; color:#b45309; text-align:center; padding:8px 15px; font-size:12.5px; border-bottom:1px solid var(--line); font-weight:600;}
   #room-header{display:flex;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);flex-shrink:0;}
   #room-header .rtitle{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;}
   #room-header .rscore{font-size:12px;color:var(--muted);}
@@ -148,6 +149,7 @@
     <div class="topbar-btn" id="tb-roominfo"><span class="tb-icon">ℹ️</span><span class="tb-label">Room</span></div>
   </div>
   <div id="main">
+    <div id="broadcast-root" class="hidden"></div>
     <div id="room-header">
       <div class="rtitle"><span id="room-title">Lobby</span><span class="rscore" id="room-meta">ID: 1</span></div>
     </div>
@@ -170,7 +172,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const ADMIN_GIF = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/Dot.gif";
 
-let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null;
+let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null;
 const userCache = {}; 
 const AVATARS = ["🦊","🦄","🐰","🐭","🍄","☢️","🌼","♥️","♠️","♣️","♦️","👺","👻","👽","⛄","💀","👤","🧑🏻‍🚀","🧒🏻","👩🏻","🍁","🍀","🌲","⚡","🐥","🛡️","♂️","♀️"];
 const COLORS = ["#000000", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280", "#f5780e"];
@@ -214,6 +216,7 @@ async function startApp(){
   if(currentUser.is_admin) el('tb-admin').classList.remove('hidden');
   joinRoom(1);
   subscribeToPMs();
+  subscribeToBroadcasts();
 }
 
 // --- Rating & Color Logic ---
@@ -237,10 +240,56 @@ function getPmColorScheme(user) {
 async function getTreasury() { const { data } = await sb.from('admin_settings').select('*').eq('id', 1).single(); return data; }
 async function updateTreasury(updates) { await sb.from('admin_settings').update(updates).eq('id', 1); }
 
+// --- Broadcast Logic ---
+function subscribeToBroadcasts() {
+  if (broadcastSubscription) sb.removeChannel(broadcastSubscription);
+  
+  // Fetch active broadcasts on load
+  sb.from('broadcasts').select('*').gt('expires_at', new Date().toISOString()).then(({ data }) => {
+    if (data && data.length > 0) showBroadcast(data[0]);
+  });
+
+  broadcastSubscription = sb.channel('broadcasts')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'broadcasts' }, payload => {
+      showBroadcast(payload.new);
+    })
+    .subscribe();
+}
+
+function showBroadcast(b) {
+  const now = new Date();
+  const expires = new Date(b.expires_at);
+  if (expires < now) return;
+  
+  const root = el('broadcast-root');
+  root.innerHTML = `📢 ${escapeHtml(b.content)}`;
+  root.classList.remove('hidden');
+  
+  const timeLeft = expires.getTime() - now.getTime();
+  setTimeout(() => {
+    root.classList.add('hidden');
+    root.innerHTML = '';
+  }, timeLeft);
+}
+
 // --- Chat Room Logic ---
 async function joinRoom(id){
-  currentRoom = id;
   closeModal();
+  
+  // VIP Room Entry Fee Check
+  if (id === 2 && currentUser.user_id !== 1) {
+    const settings = await getTreasury();
+    const fee = parseFloat(settings.vip_entry_fee);
+    if (currentUser.currency < fee) return alert(`Entering VIP room costs ${fee} Ð. You don't have enough dots.`);
+    if (!confirm(`Entering VIP room costs ${fee} Ð. Proceed?`)) return;
+    
+    const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - fee }).eq('user_id', currentUser.user_id).select().single();
+    currentUser = updatedUser;
+    await updateTreasury({ fund_balance: parseFloat(settings.fund_balance) + fee });
+    alert('Welcome to VIP Room!');
+  }
+
+  currentRoom = id;
   if (msgSubscription) await sb.removeChannel(msgSubscription);
 
   const { data: room } = await sb.from('rooms').select('*').eq('room_id', id).single();
@@ -334,6 +383,11 @@ el('btn-send').onclick = async () => {
   await sb.from('public_messages').insert([
     { room_id: currentRoom, user_id: currentUser.user_id, username: currentUser.username, content: t }
   ]);
+  
+  // Add Rating Points (Double in VIP room)
+  let pointsToAdd = currentRoom === 2 ? 2 : 1;
+  const { data: updatedUser } = await sb.from('app_users').update({ rating_points: currentUser.rating_points + pointsToAdd }).eq('user_id', currentUser.user_id).select().single();
+  currentUser = updatedUser;
 };
 el('msg-input').addEventListener('keydown', e => { if(e.key==='Enter') el('btn-send').click(); });
 
@@ -708,8 +762,10 @@ window.payFine = async () => {
 };
 
 // --- Dots, Services & Games Logic ---
-el('tb-dots').onclick = () => {
+el('tb-dots').onclick = async () => {
   const bal = parseFloat(currentUser.currency || 0).toFixed(2);
+  const settings = await getTreasury();
+  
   openModal('Dots & Services', `
     <div style="text-align:center; margin-bottom:20px; background:var(--dot-soft); padding:15px; border-radius:12px;">
       <div style="font-size:32px; font-weight:800; color:var(--dot);">
@@ -721,6 +777,10 @@ el('tb-dots').onclick = () => {
     <div class="list-row" onclick="openTransferDotsModal()">
       <span style="font-size:20px;">💸</span>
       <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Send Dots</div><div style="font-size:11px; color:var(--muted);">Transfer to another user (10% tax)</div></div>
+    </div>
+    <div class="list-row" onclick="openBroadcastModal()">
+      <span style="font-size:20px;">📢</span>
+      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Broadcast Message</div><div style="font-size:11px; color:var(--muted);">Global message for 1 min (${settings.broadcast_fee} Ð)</div></div>
     </div>
     <div class="list-row" onclick="openShopModal()">
       <span style="font-size:20px;">🛍️</span>
@@ -739,6 +799,36 @@ el('tb-dots').onclick = () => {
       <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Redeem Code</div><div style="font-size:11px; color:var(--muted);">Use a gift code</div></div>
     </div>
   `);
+};
+
+window.openBroadcastModal = async () => {
+  const settings = await getTreasury();
+  openModal('📢 Broadcast Message', `
+    <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Send a global message to all rooms for 1 minute. Max 250 chars.</p>
+    <textarea id="bc-text" style="width:100%; height:100px; border:1px solid var(--line); border-radius:8px; padding:10px; font-family:inherit; font-size:13px; resize:none;" placeholder="Your message..." maxlength="250"></textarea>
+    <button class="btn" onclick="sendBroadcast()">Send (${settings.broadcast_fee} Ð)</button>
+  `);
+};
+
+window.sendBroadcast = async () => {
+  const text = el('bc-text').value.trim();
+  if (!text) return alert('Enter a message.');
+  const settings = await getTreasury();
+  const fee = parseFloat(settings.broadcast_fee);
+  
+  if (currentUser.currency < fee) return alert(`Broadcast costs ${fee} Ð. Not enough dots.`);
+  if (!confirm(`This will cost ${fee} Ð. Proceed?`)) return;
+  
+  const expiresAt = new Date(Date.now() + 60000).toISOString(); // 1 minute
+  
+  await sb.from('broadcasts').insert([{ content: text, sender_username: currentUser.username, expires_at: expiresAt }]);
+  
+  const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - fee }).eq('user_id', currentUser.user_id).select().single();
+  currentUser = updatedUser;
+  await updateTreasury({ fund_balance: parseFloat(settings.fund_balance) + fee });
+  
+  alert('Broadcast sent!');
+  closeModal();
 };
 
 window.openShopModal = async () => {
@@ -1208,6 +1298,7 @@ el('tb-admin').onclick = async () => {
       <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Tax Balance:</span><b>${parseFloat(treasury.tax_balance).toFixed(2)} Ð</b></div>
       <div style="display:flex; justify-content:space-between;"><span>Fund Balance:</span><b>${parseFloat(treasury.fund_balance).toFixed(2)} Ð</b></div>
     </div>
+    <div class="list-row" onclick="adminEconomyPrompt()"><span style="font-size:20px;">⚙️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Economy Settings</div><div style="font-size:11px; color:var(--muted);">VIP fee, Broadcast fee</div></div></div>
     <div class="list-row" onclick="adminManageGiftsPrompt()"><span style="font-size:20px;">🛍️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Manage Gifts</div><div style="font-size:11px; color:var(--muted);">Change price or stock</div></div></div>
     <div class="list-row" onclick="adminMintPrompt()"><span style="font-size:20px;">🖨️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Mint Dots</div><div style="font-size:11px; color:var(--muted);">Create new dots to Treasury</div></div></div>
     <div class="list-row" onclick="adminRewardPrompt()"><span style="font-size:20px;">🎁</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Give Reward</div><div style="font-size:11px; color:var(--muted);">Reward user from Treasury</div></div></div>
@@ -1222,6 +1313,18 @@ el('tb-admin').onclick = async () => {
     <div class="list-row" onclick="adminClearRoomPrompt()"><span style="font-size:20px;">🧹</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Clear Room Messages</div><div style="font-size:11px; color:var(--muted);">Delete all chats</div></div></div>
     <div class="list-row" onclick="adminDeleteRoomPrompt()"><span style="font-size:20px;">🗑️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Delete Room</div><div style="font-size:11px; color:var(--muted);">Remove room</div></div></div>
   `);
+};
+
+window.adminEconomyPrompt = async () => {
+  const settings = await getTreasury();
+  const vipFee = prompt('VIP Room Entry Fee:', settings.vip_entry_fee);
+  if(vipFee === null) return;
+  const bcFee = prompt('Broadcast Message Fee:', settings.broadcast_fee);
+  if(bcFee === null) return;
+  
+  await updateTreasury({ vip_entry_fee: parseFloat(vipFee), broadcast_fee: parseFloat(bcFee) });
+  alert('Economy settings updated!');
+  el('tb-admin').click();
 };
 
 window.adminManageGiftsPrompt = async () => {
