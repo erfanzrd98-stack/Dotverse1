@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Dotverse</title>
+<!-- Supabase Library -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{ --bg:#fff; --ink:#14181f; --muted:#6b7280; --line:#e7e9ee; --dot:#3d5afe; --dot-soft:#eef0ff; --danger:#e14b4b; }
+  *{box-sizing:border-box;} html,body{height:100%;margin:0;font-family:"Tahoma","Arial",sans-serif;background:var(--bg);color:var(--ink);overflow:hidden;}
+  .hidden{display:none!important;}
+  ::-webkit-scrollbar{width:8px;} ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
+  
+  /* Auth */
+  .auth-wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:24px;overflow-y:auto;}
+  .auth-card{width:100%;max-width:380px;border:1px solid var(--line);border-radius:14px;padding:32px 28px;background:#fff;box-shadow:0 12px 32px -12px rgba(0,0,0,.1);}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .brand-dot{width:14px;height:14px;border-radius:50%;background:var(--dot);box-shadow:0 0 0 4px var(--dot-soft);}
+  .brand-name{font-size:20px;font-weight:700;}
+  .auth-sub{color:var(--muted);font-size:13.5px;margin:0 0 24px;}
+  .tabs{display:flex;gap:4px;margin-bottom:20px;background:#f4f5f7;border-radius:10px;padding:3px;}
+  .tab{flex:1;text-align:center;padding:8px 0;font-size:13.5px;font-weight:600;border-radius:8px;cursor:pointer;color:var(--muted);}
+  .tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  label.field{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:14px 0 6px;}
+  input,select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:14.5px;outline:none;background:#fbfbfc;font-family:inherit;}
+  input:focus,select:focus{border-color:var(--dot);background:#fff;}
+  .btn{padding:12px 0;border:none;border-radius:10px;cursor:pointer;font-size:14.5px;font-weight:700;width:100%;background:var(--dot);color:#fff;margin-top:20px;font-family:inherit;}
+  .btn-sm{padding:7px 12px;font-size:12.5px;border-radius:8px;background:#f4f5f7;color:var(--ink);width:auto;margin:0;}
+  .btn-danger{background:#ef4444;color:#fff;}
+  .auth-msg{font-size:13px;margin-top:12px;min-height:16px;color:var(--danger);}
+
+  /* Shell & Scrolling Fix */
+  #app{height:100%; display:flex; flex-direction:column;}
+  #shell{display:flex;flex-direction:column;height:100%;overflow:hidden;}
+  #topbar-mobile{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);background:#fff;flex-shrink:0;overflow-x:auto;}
+  .topbar-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:9px 4px;cursor:pointer;color:var(--muted);min-width:52px;}
+  .topbar-btn .tb-icon{font-size:18px;}
+  .topbar-btn .tb-label{font-size:8.5px;font-weight:700;}
+  .topbar-btn.hidden{display:none;}
+  
+  #main{flex:1;display:flex;flex-direction:column;min-height:0;}
+  #room-header{display:flex;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);flex-shrink:0;}
+  #room-header .rtitle{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;}
+  #room-header .rscore{font-size:12px;color:var(--muted);}
+  
+  #messages{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-height:0;}
+  .msg{display:flex;gap:8px;align-items:flex-start;}
+  .avatar-emoji{font-size:16px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--dot-soft);border-radius:50%;flex-shrink:0;cursor:pointer;}
+  .msg-body{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
+  .msg-name{font-size:13px;font-weight:700;cursor:pointer;}
+  .msg-text{font-size:14px;word-break:break-word;}
+  .sys-msg{text-align:center;color:var(--muted);font-size:12px;font-style:italic;margin:5px 0;}
+  
+  #composer{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);flex-shrink:0;}
+  #composer input{flex:1;font-family:inherit;}
+  #composer button{padding:0 20px;margin:0;width:auto;}
+
+  /* Modals & Menus */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:80;padding:20px;overflow-y:auto;}
+  .modal-card{background:#fff;border-radius:16px;padding:26px;width:100%;max-width:380px;max-height:86vh;overflow-y:auto;box-sizing:border-box;}
+  .modal-card.wide{max-width:600px;}
+  .close-x{float:right;cursor:pointer;color:var(--muted);font-weight:700;}
+  .list-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #f4f5f7;font-size:13px;cursor:pointer;}
+  .ctx-menu{position:fixed;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.2);padding:6px;z-index:90;min-width:180px;}
+  .ctx-item{padding:9px 12px;font-size:13px;font-weight:600;border-radius:7px;cursor:pointer;}
+  .ctx-item:hover{background:#f4f5f7;}
+  
+  /* Center PM Popups Stack */
+  #pm-popup-root{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:120;display:flex;flex-direction:column;gap:10px;align-items:center;}
+  .pm-popup-card{width:fit-content;min-width:220px;max-width:320px;border:1px solid rgba(0,0,0,0.5);box-shadow:2px 3px 8px rgba(0,0,0,0.45);display:flex;flex-direction:column;background:#fff;}
+  .pm-popup-header{display:flex;justify-content:space-between;align-items:center;padding:0 0 0 8px;color:#fff;font-size:14px;font-weight:bold;height:26px;}
+  .pm-popup-close{width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:#000;}
+  .pm-popup-text{padding:12px;color:#000;font-size:12px;text-align:center;display:flex;align-items:center;justify-content:center;line-height:1.4;min-height:40px;}
+  .pm-popup-actions{display:flex;height:28px;}
+  .pm-popup-actions button{flex:1;color:#000;border:2px outset;font-size:12px;cursor:pointer;font-family:inherit;font-weight:bold;white-space:nowrap;}
+  .pm-popup-reply-box{display:flex;height:28px;}
+  .pm-popup-reply-box input{flex:1;padding:4px 8px;border:1px solid #ccc;font-size:12px;outline:none;font-family:inherit;}
+  .pm-popup-reply-box button{width:60px;color:#000;border:2px outset;font-size:12px;cursor:pointer;font-family:inherit;font-weight:bold;white-space:nowrap;}
+  
+  /* PM History View */
+  .pm-history-view{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:16px;}
+  .pm-history-msg{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;word-break:break-word;color:#000;}
+  .pm-history-msg b{font-size:10px;display:block;margin-bottom:2px;opacity:0.8;}
+
+  /* My Profile Styles */
+  .p-row{display:flex;align-items:center;border-bottom:1px solid #f4f5f7;padding:10px 0;min-height:40px;}
+  .p-label{width:45%;font-size:13px;color:var(--muted);font-weight:600;border-right:1px solid var(--line);padding-right:10px;text-align:right;}
+  .p-val{width:55%;padding-left:10px;display:flex;justify-content:flex-end;align-items:center;}
+  .p-input, .p-select{width:100%;max-width:140px;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:13px;background:#f9f9f9;outline:none;text-align:right;font-family:inherit;}
+  .p-input:focus, .p-select:focus{border-color:var(--dot);background:#fff;}
+  .p-bubble{background:var(--dot-soft);color:var(--dot);padding:6px 16px;border-radius:20px;font-weight:700;font-size:13px;text-align:center;}
+  .p-btn-row{display:flex;gap:10px;margin-top:20px;}
+  .p-btn{flex:1;padding:10px;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;}
+  .p-btn-save{background:var(--dot);color:#fff;}
+  .p-btn-logout{background:transparent;color:var(--danger);border:1px solid var(--danger);}
+  .p-color-grid{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:140px;}
+  .p-color-opt{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
+  .p-color-opt.selected{border-color:var(--ink);}
+
+  /* View Profile Styles */
+  .vp-card{width:260px;background:#fff;border-radius:12px;padding:16px;box-shadow:0 4px 15px rgba(0,0,0,0.05); margin:0 auto;}
+  .vp-row{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f4f5f7;padding:8px 0;}
+  .vp-label{width:50%;font-size:12px;color:var(--muted);font-weight:600;text-align:left;border-right:1px solid var(--line);padding-right:10px;}
+  .vp-val{width:50%;display:flex;justify-content:flex-end;padding-left:10px;}
+  .vp-bubble{background:var(--dot-soft);color:var(--dot);padding:4px 12px;border-radius:20px;font-weight:700;font-size:12px;text-align:center;}
+  .vp-btn-row{display:flex;gap:5px;margin-top:16px;}
+  .vp-btn{flex:1;padding:8px 4px;border:none;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit;}
+  .vp-btn-pm{background:var(--dot);color:#fff;}
+  .vp-btn-dots{background:#f4f5f7;color:var(--ink);}
+  .vp-btn-friend{background:#eef0ff;color:var(--dot);}
+
+  /* PM Modal Tabs & List */
+  .pm-modal-tabs{display:flex;gap:4px;margin-bottom:20px;background:#f4f5f7;border-radius:10px;padding:3px;}
+  .pm-modal-tab{flex:1;text-align:center;padding:8px 0;font-size:13.5px;font-weight:600;border-radius:8px;cursor:pointer;color:var(--muted);}
+  .pm-modal-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  .friend-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f4f5f7;}
+  .friend-info{display:flex;align-items:center;gap:10px;}
+  .friend-av{font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--dot-soft);border-radius:50%;}
+  .friend-name{font-weight:600;font-size:14px;}
+  .friend-actions{display:flex;gap:4px;}
+  .act-btn{border:none;background:#f4f5f7;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
+  .act-btn.danger{background:#fee2e2;color:#ef4444;}
+  .act-btn.primary{background:var(--dot);color:#fff;}
+</style>
+</head>
+<body>
+
+<div id="auth-screen" class="auth-wrap">
+  <div class="auth-card">
+    <div class="brand"><span class="brand-dot"></span><span class="brand-name">Dotverse</span></div>
+    <p class="auth-sub">A tiny chat world. Ten seats. One dot at a time.</p>
+    <div class="tabs">
+      <div class="tab active" id="tab-login">Log in</div>
+      <div class="tab" id="tab-register">Register</div>
+    </div>
+    <div id="form-login">
+      <label class="field">Username</label><input type="text" id="login-username" />
+      <label class="field">Password</label><input type="password" id="login-password" />
+      <button class="btn" id="btn-login">Log in</button>
+    </div>
+    <div id="form-register" class="hidden">
+      <label class="field">Username</label><input type="text" id="reg-username" />
+      <label class="field">Password</label><input type="password" id="reg-password" />
+      <label class="field">Gender</label><select id="reg-gender"><option value="male">Male</option><option value="female">Female</option></select>
+      <label class="field">City</label><input type="text" id="reg-city" />
+      <button class="btn" id="btn-register">Create account</button>
+    </div>
+    <div class="auth-msg" id="auth-msg"></div>
+  </div>
+</div>
+
+<div id="shell" class="hidden">
+  <div id="topbar-mobile">
+    <div class="topbar-btn" id="tb-profile"><span class="tb-icon" id="tb-profile-avatar">🙂</span><span class="tb-label">Profile</span></div>
+    <div class="topbar-btn" id="tb-pms"><span class="tb-icon">👥</span><span class="tb-label">PMs</span></div>
+    <div class="topbar-btn" id="tb-rooms"><span class="tb-icon">💬</span><span class="tb-label">Rooms</span></div>
+    <div class="topbar-btn" id="tb-dots"><span class="tb-icon">🪙</span><span class="tb-label" id="tb-dots-count">0</span></div>
+    <div class="topbar-btn" id="tb-games"><span class="tb-icon">🎮</span><span class="tb-label">Games</span></div>
+    <div class="topbar-btn hidden" id="tb-admin"><span class="tb-icon">👑</span><span class="tb-label">Admin</span></div>
+    <div class="topbar-btn" id="tb-roominfo"><span class="tb-icon">ℹ️</span><span class="tb-label">Room</span></div>
+  </div>
+  <div id="main">
+    <div id="room-header">
+      <div class="rtitle"><span id="room-title">Lobby</span><span class="rscore" id="room-meta">ID: 1</span></div>
+    </div>
+    <div id="messages"></div>
+    <div id="composer">
+      <input type="text" id="msg-input" placeholder="Say something…" maxlength="500" />
+      <button class="btn btn-sm" id="btn-send">Send</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+<div id="context-root"></div>
+<div id="pm-popup-root"></div>
+
+<script>
+// Supabase Initialization
+const SUPABASE_URL = "https://secsiftaabzbrfbaeaxn.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlY3NpZnRhYWJ6YnJmYmFlYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3ODY4NzIsImV4cCI6MjEwMTM2Mjg3Mn0.ZBFujtK74JZK6NsI5vGO_O733qY2rSsPmvnbBcZSxu4";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null, currentRoom = 1, msgSubscription = null;
+
+function el(id){return document.getElementById(id);}
+function escapeHtml(s){const d=document.createElement('div');d.textContent=s??'';return d.innerHTML;}
+function showMsg(t,ok){const e=el('auth-msg');e.textContent=t;e.className='auth-msg '+(ok?'ok':'error');}
+
+el('tab-login').onclick=()=>{el('tab-login').classList.add('active');el('tab-register').classList.remove('active');el('form-login').classList.remove('hidden');el('form-register').classList.add('hidden');showMsg('',true);};
+el('tab-register').onclick=()=>{el('tab-register').classList.add('active');el('tab-login').classList.remove('active');el('form-register').classList.remove('hidden');el('form-login').classList.add('hidden');showMsg('',true);};
+
+// --- Auth Logic ---
+el('btn-register').onclick = async () => {
+  const u=el('reg-username').value.trim(),p=el('reg-password').value,g=el('reg-gender').value,c=el('reg-city').value.trim();
+  if(u.length < 3 || u.length > 14) return showMsg('Username must be 3-14 chars.');
+  if(p.length < 3 || p.length > 14) return showMsg('Password must be 3-14 chars.');
+  
+  const { data, error } = await sb.from('app_users').insert([{ username: u, password: p, gender: g, city: c, currency: 10.00 }]).select().single();
+  if (error) {
+    if(error.message.includes('duplicate')) return showMsg('Username already exists.');
+    return showMsg('Error: ' + error.message);
+  }
+  currentUser = data;
+  startApp();
+};
+
+el('btn-login').onclick = async () => {
+  const u=el('login-username').value.trim(),p=el('login-password').value;
+  if(!u||!p) return showMsg('Enter credentials.');
+  
+  const { data, error } = await sb.from('app_users').select('*').eq('username', u).eq('password', p).single();
+  if (error || !data) return showMsg('Invalid username or password.');
+  currentUser = data;
+  startApp();
+};
+
+// --- App Shell Logic ---
+async function startApp(){
+  el('auth-screen').classList.add('hidden');
+  el('shell').classList.remove('hidden');
+  if(currentUser.is_admin) el('tb-admin').classList.remove('hidden');
+  updateTopBar();
+  joinRoom(1);
+}
+
+function updateTopBar(){
+  el('tb-profile-avatar').textContent = currentUser.is_admin ? '👑' : (currentUser.avatar_url||'🙂');
+  el('tb-dots-count').textContent = currentUser.is_admin ? '∞' : currentUser.currency;
+}
+
+// --- Chat Room Logic ---
+async function joinRoom(id){
+  currentRoom = id;
+  closeModal();
+  
+  if (msgSubscription) await sb.removeChannel(msgSubscription);
+
+  const { data: room } = await sb.from('rooms').select('*').eq('room_id', id).single();
+  if (room) {
+    el('room-title').textContent = room.name;
+    el('room-meta').textContent = 'ID: ' + room.room_id + ' · ' + room.rating_points + ' pts';
+  }
+
+  await loadMessages();
+
+  msgSubscription = sb.channel('public:public_messages:room_id=eq.' + id)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'public_messages', filter: `room_id=eq.${id}` }, payload => {
+      appendMessage(payload.new, true);
+    })
+    .subscribe();
+}
+
+async function loadMessages(){
+  const { data } = await sb.from('public_messages')
+    .select('*, app_users(username, avatar_url, id_color)')
+    .eq('room_id', currentRoom)
+    .order('created_at', { ascending: true })
+    .limit(50);
+  
+  const w = el('messages');
+  w.innerHTML = '';
+  if (data) data.forEach(m => appendMessage(m, false));
+  w.scrollTop = w.scrollHeight;
+}
+
+function appendMessage(m, isRealtime){
+  const w = el('messages');
+  const div = document.createElement('div');
+  
+  if (!m.user_id) { // System Message
+    div.className = 'sys-msg';
+    div.textContent = m.content;
+  } else {
+    const username = m.app_users ? m.app_users.username : 'Unknown';
+    const avatar = m.app_users ? (m.app_users.avatar_url || '🙂') : '🙂';
+    const nameColor = m.app_users ? (m.app_users.id_color || '#000') : '#000';
+    
+    div.className = 'msg';
+    div.innerHTML = `<span class="avatar-emoji" onclick="showCtx(event,'${username}')">${avatar}</span>
+                     <div class="msg-body"><span class="msg-name" style="color:${nameColor}" onclick="showCtx(event,'${username}')">${escapeHtml(username)}</span><span class="msg-text">${escapeHtml(m.content)}</span></div>`;
+  }
+  w.appendChild(div);
+  if (isRealtime) w.scrollTop = w.scrollHeight;
+}
+
+el('btn-send').onclick = async () => {
+  const t = el('msg-input').value.trim();
+  if (!t) return;
+  el('msg-input').value = '';
+  await sb.from('public_messages').insert([
+    { room_id: currentRoom, user_id: currentUser.user_id, username: currentUser.username, content: t }
+  ]);
+};
+el('msg-input').addEventListener('keydown', e => { if(e.key==='Enter') el('btn-send').click(); });
+
+// --- Placeholder Functions for UI (Will be implemented next) ---
+el('tb-rooms').onclick = async () => {
+  const { data } = await sb.from('rooms').select('*').order('rating_points', { ascending: false });
+  let rows = '';
+  data.forEach(r => {
+    const icon = r.room_id === 1 ? '💬' : r.room_id === 2 ? '⭐' : r.room_id === 3 ? '🚫' : '🏠';
+    rows += `<div class="list-row" onclick="joinRoom(${r.room_id})"><span>${icon}</span><span style="flex:1;font-weight:600;">${escapeHtml(r.name)}</span><span style="color:var(--muted)">${r.rating_points} pts</span></div>`;
+  });
+  openModal('Chat Rooms', rows);
+};
+
+el('tb-profile').onclick = () => { openModal('Profile', '<p style="text-align:center;color:var(--muted)">Profile editing will be added next.</p>'); };
+el('tb-pms').onclick = () => { openModal('Private Messages', '<p style="text-align:center;color:var(--muted)">PM system will be added next.</p>'); };
+el('tb-dots').onclick = () => { openModal('Dots', '<p style="text-align:center;color:var(--muted)">Dots transfer will be added next.</p>'); };
+el('tb-games').onclick = () => { openModal('Games', '<p style="text-align:center;color:var(--muted)">Games will be added next.</p>'); };
+el('tb-roominfo').onclick = () => { openModal('Room Info', '<p style="text-align:center;color:var(--muted)">Room info will be added next.</p>'); };
+el('tb-admin').onclick = () => { openModal('Admin Panel', '<p style="text-align:center;color:var(--muted)">Admin panel will be added next.</p>'); };
+
+function openModal(t,b,wide){el('modal-root').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()"><div class="modal-card ${wide?'wide':''}"><span class="close-x" onclick="closeModal()">✕</span><h3 style="margin:0 0 16px;font-size:16px;">${t}</h3>${b}</div></div>`;}
+function closeModal(){el('modal-root').innerHTML='';}
+
+function showCtx(e,u){
+  e.stopPropagation();
+  const m=document.createElement('div');
+  m.className='ctx-menu';
+  m.style.left=e.clientX+'px';m.style.top=e.clientY+'px';
+  m.innerHTML=`
+    <div class="ctx-item" onclick="alert('PM feature coming soon!');closeCtx();">💬 Private Message</div>
+    <div class="ctx-item" onclick="alert('Profile view coming soon!');closeCtx();">👤 View Profile</div>
+    <div class="ctx-item" onclick="alert('Friend system coming soon!');closeCtx();">➕ Add Friend</div>
+    <div class="ctx-item" onclick="alert('Dots transfer coming soon!');closeCtx();">🪙 Send Dots</div>`;
+  el('context-root').innerHTML='';el('context-root').appendChild(m);
+}
+function closeCtx(){el('context-root').innerHTML='';}
+window.onclick=closeCtx;
+</script>
+</body>
+</html>
