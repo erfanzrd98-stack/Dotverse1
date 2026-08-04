@@ -655,9 +655,105 @@ window.createRoomPrompt = async () => {
   joinRoom(newRoom.room_id);
 };
 
+// --- Room Info Logic ---
+el('tb-roominfo').onclick = async () => {
+  const { data: room, error } = await sb.from('rooms').select('*').eq('room_id', currentRoom).single();
+  if (error || !room) return alert('Could not fetch room info.');
+
+  // Fetch creator and owner names
+  const { data: creator } = await sb.from('app_users').select('username').eq('user_id', room.creator_id).single();
+  const { data: owner } = await sb.from('app_users').select('username').eq('user_id', room.owner_id).single();
+
+  // Fetch moderators
+  const { data: mods } = await sb.from('room_moderators').select('user_id').eq('room_id', currentRoom);
+  let modsHtml = '<p style="color:var(--muted);font-size:12px;">None</p>';
+  
+  if (mods && mods.length > 0) {
+    const modIds = mods.map(m => m.user_id);
+    const { data: modUsers } = await sb.from('app_users').select('user_id, username').in('user_id', modIds);
+    if (modUsers && modUsers.length > 0) {
+      modsHtml = modUsers.map(m => `
+        <div class="list-row" style="cursor:default; border-bottom:none;">
+          <span style="flex:1; font-weight:600;">${escapeHtml(m.username)} (ID: ${m.user_id})</span>
+          ${(room.creator_id === currentUser.user_id || room.owner_id === currentUser.user_id) ? `<button class="act-btn danger" onclick="removeModerator(${m.user_id})">➖</button>` : ''}
+        </div>
+      `).join('');
+    }
+  }
+
+  const canManage = room.creator_id === currentUser.user_id || room.owner_id === currentUser.user_id;
+  const isCreator = room.creator_id === currentUser.user_id;
+
+  let html = `
+    <div class="list-row"><span style="flex:1;color:var(--muted);">Name</span><b>${escapeHtml(room.name)}</b></div>
+    <div class="list-row"><span style="flex:1;color:var(--muted);">Room ID</span><b>#${room.room_id}</b></div>
+    <div class="list-row"><span style="flex:1;color:var(--muted);">Score</span><b>${room.rating_points} pts</b></div>
+    <div class="list-row"><span style="flex:1;color:var(--muted);">Creator</span><b>${creator ? escapeHtml(creator.username) : 'Unknown'}</b></div>
+    <div class="list-row"><span style="flex:1;color:var(--muted);">Owner</span><b>${owner ? escapeHtml(owner.username) : 'Unknown'}</b></div>
+    
+    <div style="margin-top:15px; font-size:13px; font-weight:700;">Moderators:</div>
+    <div style="border:1px solid var(--line); border-radius:8px; padding:5px 10px; margin-bottom:15px;">
+      ${modsHtml}
+    </div>
+  `;
+
+  if (canManage) {
+    html += `
+      <label class="field">Add Moderator (Enter User ID)</label>
+      <div style="display:flex; gap:10px;">
+        <input type="number" id="mod-id-input" placeholder="e.g. 5" style="flex:1;" />
+        <button class="btn btn-sm" onclick="addModerator()">Add</button>
+      </div>
+    `;
+  }
+
+  if (isCreator) {
+    html += `
+      <label class="field" style="margin-top:20px;">Transfer Ownership (Enter User ID)</label>
+      <div style="display:flex; gap:10px;">
+        <input type="number" id="owner-id-input" placeholder="e.g. 5" style="flex:1;" />
+        <button class="btn btn-sm btn-danger" onclick="transferOwnership()">Transfer</button>
+      </div>
+    `;
+  }
+
+  openModal('ℹ️ Room Info', html);
+};
+
+window.addModerator = async () => {
+  const id = parseInt(el('mod-id-input').value);
+  if (!id) return alert('Enter a valid ID.');
+  const { data: target } = await sb.from('app_users').select('user_id').eq('user_id', id).single();
+  if (!target) return alert('User not found.');
+  
+  const { error } = await sb.from('room_moderators').insert([{ room_id: currentRoom, user_id: id }]);
+  if (error) return alert('Error or user is already a mod.');
+  alert('Moderator added!');
+  el('tb-roominfo').click();
+};
+
+window.removeModerator = async (uid) => {
+  if (!confirm('Remove this moderator?')) return;
+  await sb.from('room_moderators').delete().eq('room_id', currentRoom).eq('user_id', uid);
+  alert('Moderator removed!');
+  el('tb-roominfo').click();
+};
+
+window.transferOwnership = async () => {
+  const id = parseInt(el('owner-id-input').value);
+  if (!id) return alert('Enter a valid ID.');
+  if (id === currentUser.user_id) return alert('You are already the owner.');
+  const { data: target } = await sb.from('app_users').select('user_id').eq('user_id', id).single();
+  if (!target) return alert('User not found.');
+  
+  const { error } = await sb.from('rooms').update({ owner_id: id }).eq('room_id', currentRoom);
+  if (error) return alert('Error transferring ownership.');
+  alert('Ownership transferred!');
+  el('tb-roominfo').click();
+};
+
 // --- Other UI Placeholders ---
 el('tb-games').onclick = () => { openModal('Games', '<p style="text-align:center;color:var(--muted)">Games will be added next.</p>'); };
-el('tb-roominfo').onclick = () => { openModal('Room Info', '<p style="text-align:center;color:var(--muted)">Room info will be added next.</p>'); };
 el('tb-admin').onclick = () => { openModal('Admin Panel', '<p style="text-align:center;color:var(--muted)">Admin panel will be added next.</p>'); };
 
 function openModal(t,b,wide){el('modal-root').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()"><div class="modal-card ${wide?'wide':''}"><span class="close-x" onclick="closeModal()">✕</span><h3 style="margin:0 0 16px;font-size:16px;">${t}</h3>${b}</div></div>`;}
