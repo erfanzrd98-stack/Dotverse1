@@ -4,7 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Dotverse</title>
-<!-- Supabase Library -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{ --bg:#fff; --ink:#14181f; --muted:#6b7280; --line:#e7e9ee; --dot:#3d5afe; --dot-soft:#eef0ff; --danger:#e14b4b; }
@@ -30,7 +29,7 @@
   .btn-danger{background:#ef4444;color:#fff;}
   .auth-msg{font-size:13px;margin-top:12px;min-height:16px;color:var(--danger);}
 
-  /* Shell & Scrolling Fix */
+  /* Shell */
   #app{height:100%; display:flex; flex-direction:column;}
   #shell{display:flex;flex-direction:column;height:100%;overflow:hidden;}
   #topbar-mobile{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);background:#fff;flex-shrink:0;overflow-x:auto;}
@@ -134,7 +133,6 @@
 <div id="context-root"></div>
 
 <script>
-// Supabase Initialization
 const SUPABASE_URL = "https://secsiftaabzbrfbaeaxn.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlY3NpZnRhYWJ6YnJmYmFlYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3ODY4NzIsImV4cCI6MjEwMTM2Mjg3Mn0.ZBFujtK74JZK6NsI5vGO_O733qY2rSsPmvnbBcZSxu4";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -193,7 +191,6 @@ function updateTopBar(){
 async function joinRoom(id){
   currentRoom = id;
   closeModal();
-  
   if (msgSubscription) await sb.removeChannel(msgSubscription);
 
   const { data: room } = await sb.from('rooms').select('*').eq('room_id', id).single();
@@ -276,17 +273,27 @@ el('tb-profile').onclick = () => {
   let coHtml = `<div class="p-color-grid" id="p-color-grid">${COLORS.map(c => `<span class="p-color-opt ${currentUser.id_color===c?'selected':''}" style="background:${c}" onclick="selColor('${c}', this)"></span>`).join('')}</div>`;
   let genderHtml = `<select id="p-gender" class="p-select" onchange="window._gender=this.value"><option value="male" ${currentUser.gender==='male'?'selected':''}>Male</option><option value="female" ${currentUser.gender==='female'?'selected':''}>Female</option></select>`;
   
+  // Exact logic for Verification Status
+  let verifyHtml = '';
+  if (currentUser.is_verified) {
+    verifyHtml = `<span class="p-bubble" style="background:#dcfce7;color:#16a34a;">Verified ✔</span>`;
+  } else if (currentUser.verification_requested) {
+    verifyHtml = `<span class="p-bubble" style="background:#fef9c3;color:#ca8a04;">Pending...</span>`;
+  } else {
+    verifyHtml = `<button class="p-btn p-btn-save" style="width:100px;font-size:12px;margin:0;" onclick="requestVerification()">Request</button>`;
+  }
+
   openModal('👤 Your Profile',`
     <div style="max-width:320px;margin:0 auto;">
       <div class="p-row"><span class="p-label">Username</span><div class="p-val"><input type="text" id="p-username" class="p-input" value="${escapeHtml(currentUser.username)}"></div></div>
       <div class="p-row"><span class="p-label">Password</span><div class="p-val"><input type="password" id="p-password" class="p-input" placeholder="••••••"></div></div>
       <div class="p-row"><span class="p-label">Gender</span><div class="p-val">${genderHtml}</div></div>
       <div class="p-row"><span class="p-label">City</span><div class="p-val"><input type="text" id="p-city" class="p-input" value="${escapeHtml(currentUser.city||'')}"></div></div>
-      <div class="p-row"><span class="p-label">Name color</span><div class="p-val">${coHtml}</div></div>
       <div class="p-row"><span class="p-label">Avatar</span><div class="p-val">${avHtml}</div></div>
-      <div class="p-row"><span class="p-label">ID Number</span><div class="p-val"><span class="p-bubble">#${currentUser.user_id}</span></div></div>
-      <div class="p-row"><span class="p-label">Dots</span><div class="p-val"><span class="p-bubble">${currentUser.is_admin?'∞':currentUser.currency}</span></div></div>
-      <div class="p-row" style="border-bottom:none;"><span class="p-label">Rating</span><div class="p-val"><span class="p-bubble">${currentUser.rating_points}</span></div></div>
+      <div class="p-row"><span class="p-label">Name color</span><div class="p-val">${coHtml}</div></div>
+      <div class="p-row"><span class="p-label">Verify ID</span><div class="p-val">${verifyHtml}</div></div>
+      <div class="p-row" style="border-bottom:none;"><span class="p-label">ID Number</span><div class="p-val"><span class="p-bubble">#${currentUser.user_id}</span></div></div>
+      
       <div class="p-btn-row">
         <button class="p-btn p-btn-logout" onclick="location.reload()">Logout</button>
         <button class="p-btn p-btn-save" onclick="saveProfile()">Save Changes</button>
@@ -295,6 +302,15 @@ el('tb-profile').onclick = () => {
   window._av = currentUser.avatar_url || '🙂'; 
   window._co = currentUser.id_color || '#000000'; 
   window._gender = currentUser.gender || 'male';
+};
+
+window.requestVerification = async () => {
+  const { data, error } = await sb.from('app_users').update({ verification_requested: true }).eq('user_id', currentUser.user_id).select().single();
+  if(!error) {
+    currentUser = data;
+    alert('Request sent to Admin!');
+    el('tb-profile').click(); // Refresh modal to show "Pending..."
+  }
 };
 
 window.selColor = (c, e) => {
