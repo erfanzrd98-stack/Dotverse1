@@ -33,9 +33,10 @@
   #app{height:100%; display:flex; flex-direction:column;}
   #shell{display:flex;flex-direction:column;height:100%;overflow:hidden;}
   #topbar-mobile{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);background:#fff;flex-shrink:0;overflow-x:auto;}
-  .topbar-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:9px 4px;cursor:pointer;color:var(--muted);min-width:52px;}
-  .topbar-btn .tb-icon{font-size:18px;}
-  .topbar-btn .tb-label{font-size:8.5px;font-weight:700;}
+  .topbar-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px 4px;cursor:pointer;color:var(--muted);min-width:45px;}
+  .topbar-btn .tb-icon{font-size:20px;}
+  /* Hiding the labels as requested */
+  .topbar-btn .tb-label{display:none;}
   .topbar-btn.hidden{display:none;}
   
   #main{flex:1;display:flex;flex-direction:column;min-height:0;}
@@ -93,7 +94,11 @@
   .pm-popup-reply-box input{flex:1;padding:4px 8px;border:1px solid #ccc;font-size:12px;outline:none;font-family:inherit;}
   .pm-popup-reply-box button{width:60px;color:#000;border:2px outset;font-size:12px;cursor:pointer;font-family:inherit;font-weight:bold;white-space:nowrap;}
   
-  /* Friends List in Modal */
+  .pm-history-view{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:16px;}
+  .pm-history-msg{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;word-break:break-word;color:#000;}
+  .pm-history-msg b{font-size:10px;display:block;margin-bottom:2px;opacity:0.8;}
+
+  /* Friends List & Community Tabs */
   .pm-modal-tabs{display:flex;gap:4px;margin-bottom:20px;background:#f4f5f7;border-radius:10px;padding:3px;}
   .pm-modal-tab{flex:1;text-align:center;padding:8px 0;font-size:13.5px;font-weight:600;border-radius:8px;cursor:pointer;color:var(--muted);}
   .pm-modal-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1);}
@@ -136,7 +141,7 @@
 <div id="shell" class="hidden">
   <div id="topbar-mobile">
     <div class="topbar-btn" id="tb-profile"><span class="tb-icon">👤</span><span class="tb-label">Profile</span></div>
-    <div class="topbar-btn" id="tb-pms"><span class="tb-icon">👥</span><span class="tb-label">PMs</span></div>
+    <div class="topbar-btn" id="tb-pms"><span class="tb-icon">👥</span><span class="tb-label">Community</span></div>
     <div class="topbar-btn" id="tb-rooms"><span class="tb-icon">💬</span><span class="tb-label">Rooms</span></div>
     <div class="topbar-btn" id="tb-dots"><span class="tb-icon">🪙</span><span class="tb-label">Dots</span></div>
     <div class="topbar-btn" id="tb-games"><span class="tb-icon">🎮</span><span class="tb-label">Games</span></div>
@@ -375,7 +380,35 @@ async function sendReply(sender, popupId) {
   } else { alert('User not found'); }
 }
 
+// --- Community Logic (Friends, History, Report) ---
 el('tb-pms').onclick = async () => {
+  openModal('👥 Community', `
+    <div class="pm-modal-tabs">
+      <div class="pm-modal-tab active" onclick="switchCommunityTab('friends', this)">Friends</div>
+      <div class="pm-modal-tab" onclick="switchCommunityTab('history', this)">PM History</div>
+      <div class="pm-modal-tab" onclick="switchCommunityTab('report', this)">Report</div>
+    </div>
+    <div id="comm-friends"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div>
+    <div id="comm-history" class="hidden"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div>
+    <div id="comm-report" class="hidden">
+      <label class="field">Message to Admin</label>
+      <textarea id="report-text" style="width:100%;height:100px;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:none;" placeholder="Write your report or request..."></textarea>
+      <button class="btn" onclick="sendReport()">Send Report</button>
+    </div>
+  `);
+  loadFriendsList();
+  loadPMHistory();
+};
+
+window.switchCommunityTab = (tab, btn) => {
+  document.querySelectorAll('.pm-modal-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  el('comm-friends').classList.toggle('hidden', tab !== 'friends');
+  el('comm-history').classList.toggle('hidden', tab !== 'history');
+  el('comm-report').classList.toggle('hidden', tab !== 'report');
+};
+
+async function loadFriendsList() {
   const { data: friendsData } = await sb.from('friends').select('friend_id').eq('user_id', currentUser.user_id);
   let friendsHtml = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No friends yet.</p>';
   
@@ -396,13 +429,74 @@ el('tb-pms').onclick = async () => {
         </div>`).join('');
     }
   }
+  friendsHtml += `<button class="btn" style="margin-top:16px;" onclick="startNewPM()">Start New PM</button>`;
+  el('comm-friends').innerHTML = friendsHtml;
+}
 
-  openModal('👥 Private Messages',`
-    <div class="pm-modal-tabs">
-      <div class="pm-modal-tab active">Friends List</div>
-    </div>
-    <div id="pm-tab-friends">${friendsHtml}</div>
-    <button class="btn" style="margin-top:16px;" onclick="startNewPM()">Start New PM</button>`);
+async function loadPMHistory() {
+  // Fetch users who have sent PMs to me or received PMs from me
+  const { data: sent } = await sb.from('private_messages').select('receiver_id').eq('sender_id', currentUser.user_id).limit(50);
+  const { data: received } = await sb.from('private_messages').select('sender_id').eq('receiver_id', currentUser.user_id).limit(50);
+  
+  const userIds = new Set();
+  sent.forEach(m => userIds.add(m.receiver_id));
+  received.forEach(m => userIds.add(m.sender_id));
+  userIds.delete(currentUser.user_id);
+  userIds.delete(1); // Hide admin from history list for cleaner UI
+
+  let historyHtml = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No history yet.</p>';
+  
+  if (userIds.size > 0) {
+    const idsArray = Array.from(userIds);
+    const { data: users } = await sb.from('app_users').select('user_id, username, avatar_url, is_admin').in('user_id', idsArray);
+    if (users && users.length > 0) {
+      historyHtml = users.map(u => `
+        <div class="friend-row" style="cursor:pointer;" onclick="showChatHistory(${u.user_id}, '${escapeHtml(u.username)}')">
+          <div class="friend-info">
+            <span class="friend-av">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (u.avatar_url||'🙂')}</span>
+            <span class="friend-name">${escapeHtml(u.username)}</span>
+          </div>
+          <span style="font-size:12px;color:var(--muted)">Tap to chat</span>
+        </div>
+      `).join('');
+    }
+  }
+  el('comm-history').innerHTML = historyHtml;
+}
+
+window.showChatHistory = async (otherUserId, otherUsername) => {
+  const orFilter = `and(sender_id.eq.${currentUser.user_id},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${currentUser.user_id})`;
+  const { data: msgs } = await sb.from('private_messages').select('*').or(orFilter).order('created_at', { ascending: true }).limit(100);
+  
+  let historyHtml = '<div class="pm-history-view">';
+  if (msgs && msgs.length > 0) {
+    msgs.forEach(m => {
+      const isMine = m.sender_id === currentUser.user_id;
+      historyHtml += `<div class="pm-history-msg" style="align-self:${isMine?'flex-end':'flex-start'}; background:${isMine?'#eef0ff':'#f4f5f7'};">${escapeHtml(m.content)}</div>`;
+    });
+  } else {
+    historyHtml += '<p style="text-align:center;color:var(--muted);">No messages yet.</p>';
+  }
+  historyHtml += `</div><div style="display:flex;gap:8px;"><input type="text" id="pm-history-input" placeholder="Type a message..." style="flex:1;font-family:inherit;" /><button class="btn-sm" onclick="sendPMFromHistory(${otherUserId}, '${escapeHtml(otherUsername)}')">Send</button></div>`;
+  
+  openModal(`Chat with ${escapeHtml(otherUsername)}`, historyHtml);
+  const view = document.querySelector('.pm-history-view');
+  if(view) view.scrollTop = view.scrollHeight;
+};
+
+window.sendPMFromHistory = async (otherUserId, otherUsername) => {
+  const inp = document.getElementById('pm-history-input');
+  const t = inp.value.trim(); if(!t) return;
+  await sb.from('private_messages').insert([{ sender_id: currentUser.user_id, receiver_id: otherUserId, content: t }]);
+  showChatHistory(otherUserId, otherUsername);
+};
+
+window.sendReport = async () => {
+  const t = el('report-text').value.trim();
+  if(!t) return alert('Please write a message first.');
+  await sb.from('private_messages').insert([{ sender_id: currentUser.user_id, receiver_id: 1, content: '🚨 REPORT: ' + t }]);
+  el('report-text').value = '';
+  alert('Report sent to Admin!');
 };
 
 window.startNewPM = async (u) => {
@@ -426,7 +520,7 @@ window.addFriend = async (u) => {
 window.removeFriend = async (id, name) => {
   await sb.from('friends').delete().eq('user_id', currentUser.user_id).eq('friend_id', id);
   alert('Removed!');
-  el('tb-pms').click();
+  loadFriendsList();
 };
 
 // --- Dots & Services Logic ---
@@ -660,11 +754,9 @@ el('tb-roominfo').onclick = async () => {
   const { data: room, error } = await sb.from('rooms').select('*').eq('room_id', currentRoom).single();
   if (error || !room) return alert('Could not fetch room info.');
 
-  // Fetch creator and owner names
   const { data: creator } = await sb.from('app_users').select('username').eq('user_id', room.creator_id).single();
   const { data: owner } = await sb.from('app_users').select('username').eq('user_id', room.owner_id).single();
 
-  // Fetch moderators
   const { data: mods } = await sb.from('room_moderators').select('user_id').eq('room_id', currentRoom);
   let modsHtml = '<p style="color:var(--muted);font-size:12px;">None</p>';
   
