@@ -35,7 +35,7 @@
   #topbar-mobile{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);background:#fff;flex-shrink:0;overflow-x:auto;}
   .topbar-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:9px 4px;cursor:pointer;color:var(--muted);min-width:52px;}
   .topbar-btn .tb-icon{font-size:18px;}
-  .topbar-btn .tb-label{font-size:8.5px;font-weight:700;}
+  .topbar-btn .tb-label{font-size:8.5px;font-weight:700; display:flex; align-items:center; gap:3px;}
   .topbar-btn.hidden{display:none;}
   
   #main{flex:1;display:flex;flex-direction:column;min-height:0;}
@@ -67,8 +67,8 @@
   .ctx-item:hover{background:#f4f5f7;}
   
   /* Profile Styles */
-  .p-row{display:flex;align-items:center;border-bottom:1px solid #f4f5f7;padding:10px 0;min-height:40px;}
-  .p-label{width:45%;font-size:13px;color:var(--muted);font-weight:600;border-right:1px solid var(--line);padding-right:10px;text-align:right;}
+  .p-row{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f4f5f7;padding:10px 0;min-height:40px;}
+  .p-label{width:45%;font-size:13px;color:var(--muted);font-weight:600;border-right:1px solid var(--line);padding-right:10px;text-align:left;}
   .p-val{width:55%;padding-left:10px;display:flex;justify-content:flex-end;align-items:center;}
   .p-input, .p-select{width:100%;max-width:140px;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:13px;background:#f9f9f9;outline:none;text-align:right;font-family:inherit;}
   .p-input:focus, .p-select:focus{border-color:var(--dot);background:#fff;}
@@ -138,7 +138,13 @@
     <div class="topbar-btn" id="tb-profile"><span class="tb-icon">👤</span><span class="tb-label">Profile</span></div>
     <div class="topbar-btn" id="tb-pms"><span class="tb-icon">👥</span><span class="tb-label">PMs</span></div>
     <div class="topbar-btn" id="tb-rooms"><span class="tb-icon">💬</span><span class="tb-label">Rooms</span></div>
-    <div class="topbar-btn" id="tb-dots"><span class="tb-icon">🪙</span><span class="tb-label" id="tb-dots-count">0</span></div>
+    <div class="topbar-btn" id="tb-dots">
+      <span class="tb-icon">🪙</span>
+      <span class="tb-label">
+        <span id="tb-dots-count">0</span>
+        <span style="font-size:12px; cursor:pointer;" onclick="event.stopPropagation(); refreshBalance(event)">🔄</span>
+      </span>
+    </div>
     <div class="topbar-btn" id="tb-games"><span class="tb-icon">🎮</span><span class="tb-label">Games</span></div>
     <div class="topbar-btn hidden" id="tb-admin"><span class="tb-icon">👑</span><span class="tb-label">Admin</span></div>
     <div class="topbar-btn" id="tb-roominfo"><span class="tb-icon">ℹ️</span><span class="tb-label">Room</span></div>
@@ -439,7 +445,10 @@ el('tb-dots').onclick = () => {
   const bal = parseFloat(currentUser.currency || 0).toFixed(2);
   openModal('Dots & Services', `
     <div style="text-align:center; margin-bottom:20px; background:var(--dot-soft); padding:15px; border-radius:12px;">
-      <div style="font-size:32px; font-weight:800; color:var(--dot);">${currentUser.is_admin ? '∞' : bal} Ð</div>
+      <div style="font-size:32px; font-weight:800; color:var(--dot);">
+        ${currentUser.is_admin ? '∞' : bal} Ð 
+        <span style="font-size:16px; cursor:pointer; display:inline-block; transform:translateY(-2px);" onclick="refreshBalance()">🔄</span>
+      </div>
       <div style="font-size:12px; color:var(--muted); margin-top:5px;">Your Balance</div>
     </div>
     <div class="list-row" onclick="openTransferDotsModal()">
@@ -500,7 +509,7 @@ window.transferDots = async () => {
   updateTopBar();
   alert(`Success! Sent ${amt}Ð to ${to}. They received ${receiverGets.toFixed(2)}Ð.`);
   closeModal();
-  el('tb-dots').click(); // Re-open main dots menu to show new balance
+  el('tb-dots').click();
 };
 
 window.sendDotsPrompt = (u) => { 
@@ -509,6 +518,19 @@ window.sendDotsPrompt = (u) => {
     openTransferDotsModal();
     el('td-to').value = u; 
   }, 200); 
+};
+
+window.refreshBalance = async (e) => {
+  if(e) e.stopPropagation();
+  const { data, error } = await sb.from('app_users').select('currency').eq('user_id', currentUser.user_id).single();
+  if(!error && data) {
+    currentUser.currency = data.currency;
+    updateTopBar();
+    const modalTitle = el('modal-root').querySelector('h3');
+    if (modalTitle && modalTitle.textContent === 'Dots & Services') {
+      el('tb-dots').click(); // Re-open modal to refresh balance text
+    }
+  }
 };
 
 // --- Profile Logic ---
