@@ -183,6 +183,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null, currentRoom = 1, msgSubscription = null;
+const userCache = {}; // For caching user data in real-time
 
 function el(id){return document.getElementById(id);}
 function escapeHtml(s){const d=document.createElement('div');d.textContent=s??'';return d.innerHTML;}
@@ -254,7 +255,7 @@ async function joinRoom(id){
 
 async function loadMessages(){
   const { data } = await sb.from('public_messages')
-    .select('*, app_users(username, avatar_url, id_color)')
+    .select('*, sender:app_users(username, avatar_url, id_color)')
     .eq('room_id', currentRoom)
     .order('created_at', { ascending: true })
     .limit(50);
@@ -265,22 +266,39 @@ async function loadMessages(){
   w.scrollTop = w.scrollHeight;
 }
 
-function appendMessage(m, isRealtime){
+// Get user data for real-time messages
+async function getUserData(userId) {
+  if (userCache[userId]) return userCache[userId];
+  const { data } = await sb.from('app_users').select('username, avatar_url, id_color').eq('user_id', userId).single();
+  userCache[userId] = data || { username: 'Unknown', avatar_url: '🙂', id_color: '#000' };
+  return userCache[userId];
+}
+
+async function appendMessage(m, isRealtime){
   const w = el('messages');
   const div = document.createElement('div');
   
   if (!m.user_id) { // System Message
     div.className = 'sys-msg';
     div.textContent = m.content;
-  } else {
-    const username = m.app_users ? m.app_users.username : 'Unknown';
-    const avatar = m.app_users ? (m.app_users.avatar_url || '🙂') : '🙂';
-    const nameColor = m.app_users ? (m.app_users.id_color || '#000') : '#000';
-    
-    div.className = 'msg';
-    div.innerHTML = `<span class="avatar-emoji" onclick="showCtx(event,'${username}')">${avatar}</span>
-                     <div class="msg-body"><span class="msg-name" style="color:${nameColor}" onclick="showCtx(event,'${username}')">${escapeHtml(username)}</span><span class="msg-text">${escapeHtml(m.content)}</span></div>`;
+    w.appendChild(div);
+    if (isRealtime) w.scrollTop = w.scrollHeight;
+    return;
   }
+
+  let uData = m.sender || m.app_users;
+  // If it's a real-time message and lacks user data, fetch from DB
+  if (!uData && m.user_id) {
+    uData = await getUserData(m.user_id);
+  }
+  
+  const username = uData ? uData.username : (m.username || 'Unknown');
+  const avatar = uData ? (uData.avatar_url || '🙂') : '🙂';
+  const nameColor = uData ? (uData.id_color || '#000') : '#000';
+  
+  div.className = 'msg';
+  div.innerHTML = `<span class="avatar-emoji" onclick="showCtx(event,'${username}')">${avatar}</span>
+                   <div class="msg-body"><span class="msg-name" style="color:${nameColor}" onclick="showCtx(event,'${username}')">${escapeHtml(username)}</span><span class="msg-text">${escapeHtml(m.content)}</span></div>`;
   w.appendChild(div);
   if (isRealtime) w.scrollTop = w.scrollHeight;
 }
