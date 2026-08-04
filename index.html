@@ -45,7 +45,8 @@
   
   #messages{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-height:0;}
   .msg{display:flex;gap:8px;align-items:flex-start;}
-  .avatar-emoji{font-size:16px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--dot-soft);border-radius:50%;flex-shrink:0;cursor:pointer;}
+  .avatar-emoji{font-size:16px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--dot-soft);border-radius:50%;flex-shrink:0;cursor:pointer;overflow:hidden;}
+  .avatar-img{width:100%;height:100%;object-fit:cover;}
   .msg-body{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
   .msg-name{font-size:13px;font-weight:700;cursor:pointer;}
   .msg-text{font-size:14px;word-break:break-word;}
@@ -65,7 +66,7 @@
   .ctx-item{padding:9px 12px;font-size:13px;font-weight:600;border-radius:7px;cursor:pointer;}
   .ctx-item:hover{background:#f4f5f7;}
   
-  /* My Profile Styles */
+  /* Profile Styles */
   .p-row{display:flex;align-items:center;border-bottom:1px solid #f4f5f7;padding:10px 0;min-height:40px;}
   .p-label{width:45%;font-size:13px;color:var(--muted);font-weight:600;border-right:1px solid var(--line);padding-right:10px;text-align:right;}
   .p-val{width:55%;padding-left:10px;display:flex;justify-content:flex-end;align-items:center;}
@@ -79,6 +80,35 @@
   .p-color-grid{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:140px;}
   .p-color-opt{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
   .p-color-opt.selected{border-color:var(--ink);}
+
+  /* PM Popups & History */
+  #pm-popup-root{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:120;display:flex;flex-direction:column;gap:10px;align-items:center;}
+  .pm-popup-card{width:fit-content;min-width:220px;max-width:320px;border:1px solid rgba(0,0,0,0.5);box-shadow:2px 3px 8px rgba(0,0,0,0.45);display:flex;flex-direction:column;background:#fff;}
+  .pm-popup-header{display:flex;justify-content:space-between;align-items:center;padding:0 0 0 8px;color:#fff;font-size:14px;font-weight:bold;height:26px;}
+  .pm-popup-close{width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:#000;}
+  .pm-popup-text{padding:12px;color:#000;font-size:12px;text-align:center;display:flex;align-items:center;justify-content:center;line-height:1.4;min-height:40px;}
+  .pm-popup-actions{display:flex;height:28px;}
+  .pm-popup-actions button{flex:1;color:#000;border:2px outset;font-size:12px;cursor:pointer;font-family:inherit;font-weight:bold;white-space:nowrap;}
+  .pm-popup-reply-box{display:flex;height:28px;}
+  .pm-popup-reply-box input{flex:1;padding:4px 8px;border:1px solid #ccc;font-size:12px;outline:none;font-family:inherit;}
+  .pm-popup-reply-box button{width:60px;color:#000;border:2px outset;font-size:12px;cursor:pointer;font-family:inherit;font-weight:bold;white-space:nowrap;}
+  
+  .pm-history-view{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:16px;}
+  .pm-history-msg{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;word-break:break-word;color:#000;}
+  .pm-history-msg b{font-size:10px;display:block;margin-bottom:2px;opacity:0.8;}
+
+  /* Friends List in Modal */
+  .pm-modal-tabs{display:flex;gap:4px;margin-bottom:20px;background:#f4f5f7;border-radius:10px;padding:3px;}
+  .pm-modal-tab{flex:1;text-align:center;padding:8px 0;font-size:13.5px;font-weight:600;border-radius:8px;cursor:pointer;color:var(--muted);}
+  .pm-modal-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  .friend-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f4f5f7;}
+  .friend-info{display:flex;align-items:center;gap:10px;}
+  .friend-av{font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--dot-soft);border-radius:50%;}
+  .friend-name{font-weight:600;font-size:14px;}
+  .friend-actions{display:flex;gap:4px;}
+  .act-btn{border:none;background:#f4f5f7;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
+  .act-btn.danger{background:#fee2e2;color:#ef4444;}
+  .act-btn.primary{background:var(--dot);color:#fff;}
 </style>
 </head>
 <body>
@@ -131,13 +161,16 @@
 
 <div id="modal-root"></div>
 <div id="context-root"></div>
+<div id="pm-popup-root"></div>
 
 <script>
 const SUPABASE_URL = "https://secsiftaabzbrfbaeaxn.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlY3NpZnRhYWJ6YnJmYmFlYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3ODY4NzIsImV4cCI6MjEwMTM2Mjg3Mn0.ZBFujtK74JZK6NsI5vGO_O733qY2rSsPmvnbBcZSxu4";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let currentUser = null, currentRoom = 1, msgSubscription = null;
+const ADMIN_GIF = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/Dot.gif";
+
+let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null;
 const userCache = {}; 
 const AVATARS = ["🦊","🦄","🐰","🐭","🍄","☢️","🌼","♥️","♠️","♣️","♦️","👺","👻","👽","⛄","💀","👤","🧑🏻‍🚀","🧒🏻","👩🏻","🍁","🍀","🌲","⚡","🐥","🛡️","♂️","♀️"];
 const COLORS = ["#000000", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280", "#f5780e"];
@@ -181,10 +214,28 @@ async function startApp(){
   if(currentUser.is_admin) el('tb-admin').classList.remove('hidden');
   updateTopBar();
   joinRoom(1);
+  subscribeToPMs();
 }
 
 function updateTopBar(){
   el('tb-dots-count').textContent = currentUser.is_admin ? '∞' : currentUser.currency;
+}
+
+// --- Rating & Color Logic ---
+function getPmColorScheme(user) {
+  if (!user) return { header:'#6b7280', body:'#e5e7eb', footer:'#6b7280', close:'#9ca3af', border:'#6b7280' };
+  if (user.is_admin) return { header:'linear-gradient(#a44600, #8c3d00)', body:'#ff7910', footer:'linear-gradient(#a44600, #8c3d00)', close:'#ef6500', border:'#a4600e' };
+  
+  let score = user.rating_points || 0;
+  let gender = user.gender || 'male';
+  
+  if (score <= 100) return gender === 'female' ? { header:'linear-gradient(#ec4899, #db2777)', body:'#fbcfe8', footer:'linear-gradient(#ec4899, #db2777)', close:'#f9a8d4', border:'#f472b6' } : { header:'linear-gradient(#3b82f6, #2563eb)', body:'#bfdbfe', footer:'linear-gradient(#3b82f6, #2563eb)', close:'#93c5fd', border:'#60a5fa' };
+  if (score <= 200) return gender === 'female' ? { header:'linear-gradient(#b91c1c, #991b1b)', body:'#f87171', footer:'linear-gradient(#b91c1c, #991b1b)', close:'#ef4444', border:'#dc2626' } : { header:'linear-gradient(#1d4ed8, #1e40af)', body:'#60a5fa', footer:'linear-gradient(#1d4ed8, #1e40af)', close:'#3b82f6', border:'#2563eb' };
+  if (score <= 500) return { header:'linear-gradient(#b91c1c, #991b1b)', body:'#f87171', footer:'linear-gradient(#b91c1c, #991b1b)', close:'#ef4444', border:'#dc2626' };
+  if (score <= 1000) return { header:'linear-gradient(#8b5cf6, #7c3aed)', body:'#ddd6fe', footer:'linear-gradient(#8b5cf6, #7c3aed)', close:'#c4b5fd', border:'#a78bfa' };
+  if (score <= 1500) return { header:'linear-gradient(#6d28d9, #5b21b6)', body:'#c4b5fd', footer:'linear-gradient(#6d28d9, #5b21b6)', close:'#a78bfa', border:'#7c3aed' };
+  if (score <= 2000) return { header:'linear-gradient(#0891b2, #0e7490)', body:'#67e8f9', footer:'linear-gradient(#0891b2, #0e7490)', close:'#22d3ee', border:'#06b6d4' };
+  return { header:'linear-gradient(#e5e7eb, #d1d5db)', body:'#ffffff', footer:'linear-gradient(#e5e7eb, #d1d5db)', close:'#f3f4f6', border:'#9ca3af' };
 }
 
 // --- Chat Room Logic ---
@@ -210,7 +261,7 @@ async function joinRoom(id){
 
 async function loadMessages(){
   const { data } = await sb.from('public_messages')
-    .select('*, sender:app_users(username, avatar_url, id_color)')
+    .select('*, sender:app_users(username, avatar_url, id_color, is_admin)')
     .eq('room_id', currentRoom)
     .order('created_at', { ascending: true })
     .limit(50);
@@ -221,14 +272,11 @@ async function loadMessages(){
   w.scrollTop = w.scrollHeight;
 }
 
-// Get user data with a 15-second expiration to balance speed and freshness
 async function getUserData(userId) {
   const cached = userCache[userId];
   const now = Date.now();
-  if (cached && cached._ts && (now - cached._ts < 15000)) {
-    return cached;
-  }
-  const { data } = await sb.from('app_users').select('username, avatar_url, id_color').eq('user_id', userId).single();
+  if (cached && cached._ts && (now - cached._ts < 15000)) return cached;
+  const { data } = await sb.from('app_users').select('username, avatar_url, id_color, is_admin, rating_points, gender').eq('user_id', userId).single();
   userCache[userId] = data || { username: 'Unknown', avatar_url: '🙂', id_color: '#000' };
   userCache[userId]._ts = now;
   return userCache[userId];
@@ -247,24 +295,18 @@ async function appendMessage(m, isRealtime){
   }
 
   let uData = m.sender || m.app_users;
-  
-  // If the message is from the current user, use their absolute latest data
   if (m.user_id === currentUser.user_id) {
-    uData = {
-      username: currentUser.username,
-      avatar_url: currentUser.avatar_url,
-      id_color: currentUser.id_color
-    };
+    uData = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, is_admin: currentUser.is_admin };
   } else if (!uData && m.user_id) {
     uData = await getUserData(m.user_id);
   }
   
   const username = uData ? uData.username : (m.username || 'Unknown');
-  const avatar = uData ? (uData.avatar_url || '🙂') : '🙂';
+  const avatarHtml = uData && uData.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (uData ? (uData.avatar_url || '🙂') : '🙂');
   const nameColor = uData ? (uData.id_color || '#000') : '#000';
   
   div.className = 'msg';
-  div.innerHTML = `<span class="avatar-emoji" onclick="showCtx(event,'${username}')">${avatar}</span>
+  div.innerHTML = `<span class="avatar-emoji" onclick="showCtx(event,'${username}')">${avatarHtml}</span>
                    <div class="msg-body"><span class="msg-name" style="color:${nameColor}" onclick="showCtx(event,'${username}')">${escapeHtml(username)}</span><span class="msg-text">${escapeHtml(m.content)}</span></div>`;
   w.appendChild(div);
   if (isRealtime) w.scrollTop = w.scrollHeight;
@@ -280,10 +322,125 @@ el('btn-send').onclick = async () => {
 };
 el('msg-input').addEventListener('keydown', e => { if(e.key==='Enter') el('btn-send').click(); });
 
+// --- Private Message (PM) Logic ---
+function subscribeToPMs() {
+  if (pmSubscription) sb.removeChannel(pmSubscription);
+  pmSubscription = sb.channel('private_messages')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages', filter: `receiver_id=eq.${currentUser.user_id}` }, payload => {
+      handleIncomingPM(payload.new);
+    })
+    .subscribe();
+}
+
+async function handleIncomingPM(msg) {
+  const { data: sender } = await sb.from('app_users').select('*').eq('user_id', msg.sender_id).single();
+  if (sender) openPMPopup(sender.username, msg.content, sender);
+}
+
+function openPMPopup(sender, text, senderData) {
+  const scheme = getPmColorScheme(senderData);
+  const popupId = 'pm-' + Date.now() + Math.random().toString(36).substr(2,5);
+  const popup = document.createElement('div');
+  popup.className = 'pm-popup-card';
+  popup.id = popupId;
+  popup.style.borderColor = scheme.border;
+  
+  let html = `
+    <div class="pm-popup-header" style="background:${scheme.header};">
+      <span>${escapeHtml(sender)}</span>
+      <span class="pm-popup-close" style="background:${scheme.close};" onclick="document.getElementById('${popupId}').remove()">✕</span>
+    </div>
+    <div class="pm-popup-text" style="background:${scheme.body};">${escapeHtml(text)}</div>
+    <div class="pm-popup-actions" id="actions-${popupId}">
+      <button style="background:${scheme.footer}; border-color:${scheme.border};" onclick="showReplyBox('${popupId}', '${sender}')">Reply</button>
+      <button style="background:${scheme.footer}; border-color:${scheme.border};" onclick="alert('Profile view coming soon!'); document.getElementById('${popupId}').remove();">About user</button>
+    </div>
+    <div class="pm-popup-reply-box hidden" id="reply-${popupId}">
+      <input type="text" id="input-${popupId}" placeholder="Type reply..." />
+      <button style="background:${scheme.footer}; border-color:${scheme.border};" onclick="sendReply('${sender}', '${popupId}')">Send</button>
+    </div>`;
+  popup.innerHTML = html;
+  el('pm-popup-root').appendChild(popup);
+}
+
+function showReplyBox(popupId, sender) {
+  document.getElementById(`actions-${popupId}`).classList.add('hidden');
+  const replyBox = document.getElementById(`reply-${popupId}`);
+  replyBox.classList.remove('hidden');
+  const inp = document.getElementById(`input-${popupId}`);
+  inp.focus();
+  inp.addEventListener('keydown', e => { if(e.key==='Enter') sendReply(sender, popupId); });
+}
+
+async function sendReply(sender, popupId) {
+  const inp = document.getElementById(`input-${popupId}`);
+  const t = inp.value.trim();
+  if(!t) return;
+  const { data: receiver } = await sb.from('app_users').select('user_id').eq('username', sender).single();
+  if(receiver) {
+    await sb.from('private_messages').insert([{ sender_id: currentUser.user_id, receiver_id: receiver.user_id, content: t }]);
+    document.getElementById(popupId).remove(); 
+  } else { alert('User not found'); }
+}
+
+el('tb-pms').onclick = async () => {
+  const { data: friendsData } = await sb.from('friends').select('friend_id').eq('user_id', currentUser.user_id);
+  let friendsHtml = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No friends yet.</p>';
+  
+  if (friendsData && friendsData.length > 0) {
+    const friendIds = friendsData.map(f => f.friend_id);
+    const { data: friendsInfo } = await sb.from('app_users').select('username, user_id, avatar_url, is_admin').in('user_id', friendIds);
+    if (friendsInfo && friendsInfo.length > 0) {
+      friendsHtml = friendsInfo.map(f => `
+        <div class="friend-row">
+          <div class="friend-info">
+            <span class="friend-av">${f.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (f.avatar_url||'🙂')}</span>
+            <span class="friend-name">${escapeHtml(f.username)}</span>
+          </div>
+          <div class="friend-actions">
+            <button class="act-btn danger" title="Remove Friend" onclick="removeFriend(${f.user_id}, '${escapeHtml(f.username)}')">➖</button>
+            <button class="act-btn primary" title="Send PM" onclick="startNewPM('${escapeHtml(f.username)}')">💬</button>
+          </div>
+        </div>`).join('');
+    }
+  }
+
+  openModal('👥 Private Messages',`
+    <div class="pm-modal-tabs">
+      <div class="pm-modal-tab active">Friends List</div>
+    </div>
+    <div id="pm-tab-friends">${friendsHtml}</div>
+    <button class="btn" style="margin-top:16px;" onclick="startNewPM()">Start New PM</button>`);
+};
+
+window.startNewPM = async (u) => {
+  if(!u) u = prompt('Enter username to send a PM:');
+  if(!u) return;
+  const { data: receiver } = await sb.from('app_users').select('*').eq('username', u).single();
+  if (receiver) {
+    openPMPopup(u, "", receiver);
+    const popupId = document.querySelector('.pm-popup-card').id;
+    showReplyBox(popupId, u);
+  } else { alert("User not found"); }
+};
+
+window.addFriend = async (u) => {
+  const { data: target } = await sb.from('app_users').select('user_id').eq('username', u).single();
+  if(!target) return alert('User not found');
+  await sb.from('friends').insert([{ user_id: currentUser.user_id, friend_id: target.user_id }]);
+  alert('Added!');
+};
+
+window.removeFriend = async (id, name) => {
+  await sb.from('friends').delete().eq('user_id', currentUser.user_id).eq('friend_id', id);
+  alert('Removed!');
+  el('tb-pms').click();
+};
+
 // --- Profile Logic ---
 el('tb-profile').onclick = () => {
   const isMaster = currentUser.is_admin;
-  let avHtml = isMaster ? `<select class="p-select" disabled><option selected>👑</option></select>` : `<select id="p-avatar" class="p-select" onchange="window._av=this.value">${AVATARS.map(a => `<option value="${a}" ${currentUser.avatar_url===a?'selected':''}>${a}</option>`).join('')}</select>`;
+  let avHtml = isMaster ? `<img src="${ADMIN_GIF}" class="avatar-img">` : `<select id="p-avatar" class="p-select" onchange="window._av=this.value">${AVATARS.map(a => `<option value="${a}" ${currentUser.avatar_url===a?'selected':''}>${a}</option>`).join('')}</select>`;
   let coHtml = `<div class="p-color-grid" id="p-color-grid">${COLORS.map(c => `<span class="p-color-opt ${currentUser.id_color===c?'selected':''}" style="background:${c}" onclick="selColor('${c}', this)"></span>`).join('')}</div>`;
   let genderHtml = `<select id="p-gender" class="p-select" onchange="window._gender=this.value"><option value="male" ${currentUser.gender==='male'?'selected':''}>Male</option><option value="female" ${currentUser.gender==='female'?'selected':''}>Female</option></select>`;
   
@@ -334,7 +491,7 @@ window.selColor = (c, e) => {
 
 window.saveProfile = async () => {
   let finalAvatar = window._av;
-  if(currentUser.is_admin) finalAvatar = '👑';
+  if(currentUser.is_admin) finalAvatar = ADMIN_GIF;
   
   const newUsername = el('p-username').value.trim();
   const newPassword = el('p-password').value;
@@ -360,14 +517,7 @@ window.saveProfile = async () => {
   }
   
   currentUser = data;
-  
-  // FIX: Immediately update the cache with the new profile data
-  userCache[currentUser.user_id] = {
-    username: currentUser.username,
-    avatar_url: currentUser.avatar_url,
-    id_color: currentUser.id_color,
-    _ts: Date.now()
-  };
+  userCache[currentUser.user_id] = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, _ts: Date.now() };
   
   updateTopBar();
   alert('Saved successfully!');
@@ -385,7 +535,6 @@ el('tb-rooms').onclick = async () => {
   openModal('Chat Rooms', rows);
 };
 
-el('tb-pms').onclick = () => { openModal('Private Messages', '<p style="text-align:center;color:var(--muted)">PM system will be added next.</p>'); };
 el('tb-dots').onclick = () => { openModal('Dots', '<p style="text-align:center;color:var(--muted)">Dots transfer will be added next.</p>'); };
 el('tb-games').onclick = () => { openModal('Games', '<p style="text-align:center;color:var(--muted)">Games will be added next.</p>'); };
 el('tb-roominfo').onclick = () => { openModal('Room Info', '<p style="text-align:center;color:var(--muted)">Room info will be added next.</p>'); };
@@ -400,9 +549,9 @@ function showCtx(e,u){
   m.className='ctx-menu';
   m.style.left=e.clientX+'px';m.style.top=e.clientY+'px';
   m.innerHTML=`
-    <div class="ctx-item" onclick="alert('PM feature coming soon!');closeCtx();">💬 Private Message</div>
+    <div class="ctx-item" onclick="startNewPM('${u}');closeCtx();">💬 Private Message</div>
     <div class="ctx-item" onclick="alert('Profile view coming soon!');closeCtx();">👤 View Profile</div>
-    <div class="ctx-item" onclick="alert('Friend system coming soon!');closeCtx();">➕ Add Friend</div>
+    <div class="ctx-item" onclick="addFriend('${u}');closeCtx();">➕ Add Friend</div>
     <div class="ctx-item" onclick="alert('Dots transfer coming soon!');closeCtx();">🪙 Send Dots</div>`;
   el('context-root').innerHTML='';el('context-root').appendChild(m);
 }
