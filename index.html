@@ -497,7 +497,7 @@ window.transferDots = async () => {
   currentUser = updatedSender;
   alert(`Success! Sent ${amt}Ð to ID #${toId}. They received ${receiverGets.toFixed(2)}Ð.`);
   closeModal();
-  el('tb-dots').click(); // Re-open main dots menu to show new balance
+  el('tb-dots').click(); 
 };
 
 window.sendDotsPrompt = (id) => { 
@@ -515,7 +515,7 @@ window.refreshBalance = async (e) => {
     currentUser.currency = data.currency;
     const modalTitle = el('modal-root').querySelector('h3');
     if (modalTitle && modalTitle.textContent === 'Dots & Services') {
-      el('tb-dots').click(); // Re-open modal to refresh balance text
+      el('tb-dots').click(); 
     }
   }
 };
@@ -606,7 +606,7 @@ window.saveProfile = async () => {
   closeModal();
 };
 
-// --- Other UI Placeholders ---
+// --- Rooms Logic ---
 el('tb-rooms').onclick = async () => {
   const { data } = await sb.from('rooms').select('*').order('rating_points', { ascending: false });
   let rows = '';
@@ -614,9 +614,48 @@ el('tb-rooms').onclick = async () => {
     const icon = r.room_id === 1 ? '💬' : r.room_id === 2 ? '⭐' : r.room_id === 3 ? '🚫' : '🏠';
     rows += `<div class="list-row" onclick="joinRoom(${r.room_id})"><span>${icon}</span><span style="flex:1;font-weight:600;">${escapeHtml(r.name)}</span><span style="color:var(--muted)">${r.rating_points} pts</span></div>`;
   });
+  rows += `<button class="btn" style="margin-top:16px;" onclick="createRoomPrompt()">➕ Create Room (10 Ð)</button>`;
   openModal('Chat Rooms', rows);
 };
 
+window.createRoomPrompt = async () => {
+  const name = prompt('Enter new room name:');
+  if(!name) return;
+  
+  if(currentUser.currency < 10) return alert('Not enough dots. You need 10 Ð to create a room.');
+  
+  const { data: updatedUser, error: userErr } = await sb.from('app_users')
+    .update({ currency: currentUser.currency - 10 })
+    .eq('user_id', currentUser.user_id)
+    .select().single();
+    
+  if (userErr || !updatedUser) return alert('Error updating balance.');
+  currentUser = updatedUser;
+  
+  const { data: newRoom, error: roomErr } = await sb.from('rooms')
+    .insert([{ 
+      name: name, 
+      creator_id: currentUser.user_id, 
+      owner_id: currentUser.user_id,
+      is_system: false,
+      is_vip: false,
+      is_banned_room: false,
+      rating_points: 0
+    }])
+    .select().single();
+    
+  if (roomErr) {
+    await sb.from('app_users').update({ currency: currentUser.currency + 10 }).eq('user_id', currentUser.user_id);
+    currentUser.currency += 10;
+    return alert('Error creating room: ' + roomErr.message);
+  }
+  
+  alert('Room created successfully!');
+  closeModal();
+  joinRoom(newRoom.room_id);
+};
+
+// --- Other UI Placeholders ---
 el('tb-games').onclick = () => { openModal('Games', '<p style="text-align:center;color:var(--muted)">Games will be added next.</p>'); };
 el('tb-roominfo').onclick = () => { openModal('Room Info', '<p style="text-align:center;color:var(--muted)">Room info will be added next.</p>'); };
 el('tb-admin').onclick = () => { openModal('Admin Panel', '<p style="text-align:center;color:var(--muted)">Admin panel will be added next.</p>'); };
