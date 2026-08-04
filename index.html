@@ -96,7 +96,7 @@
   .pm-history-view{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:16px;}
   .pm-history-msg{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;word-break:break-word;color:#000;}
 
-  /* Community Tabs */
+  /* Community & Search Tabs */
   .pm-modal-tabs{display:flex;gap:4px;margin-bottom:20px;background:#f4f5f7;border-radius:10px;padding:3px;}
   .pm-modal-tab{flex:1;text-align:center;padding:8px 0;font-size:13.5px;font-weight:600;border-radius:8px;cursor:pointer;color:var(--muted);}
   .pm-modal-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1);}
@@ -108,6 +108,7 @@
   .act-btn{border:none;background:#f4f5f7;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
   .act-btn.danger{background:#fee2e2;color:#ef4444;}
   .act-btn.primary{background:var(--dot);color:#fff;}
+  .lb-rank{width:24px; height:24px; background:var(--dot); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold;}
 </style>
 </head>
 <body>
@@ -142,6 +143,7 @@
     <div class="topbar-btn" id="tb-pms"><span class="tb-icon">👥</span><span class="tb-label">Community</span></div>
     <div class="topbar-btn" id="tb-rooms"><span class="tb-icon">💬</span><span class="tb-label">Rooms</span></div>
     <div class="topbar-btn" id="tb-dots"><span class="tb-icon">🪙</span><span class="tb-label">Dots</span></div>
+    <div class="topbar-btn" id="tb-search"><span class="tb-icon">🔍</span><span class="tb-label">Search</span></div>
     <div class="topbar-btn hidden" id="tb-admin"><span class="tb-icon">👑</span><span class="tb-label">Admin</span></div>
     <div class="topbar-btn" id="tb-roominfo"><span class="tb-icon">ℹ️</span><span class="tb-label">Room</span></div>
   </div>
@@ -312,7 +314,6 @@ async function appendMessage(m, isRealtime){
     uData = await getUserData(m.user_id);
   }
   
-  // FIX: Always use m.user_id as it's the direct foreign key on the message
   const userId = m.user_id;
   const username = uData ? uData.username : (m.username || 'Unknown');
   const avatarHtml = uData && uData.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (uData ? (uData.avatar_url || '🙂') : '🙂');
@@ -537,6 +538,106 @@ window.removeFriend = async (id, name) => {
   await sb.from('friends').delete().eq('user_id', currentUser.user_id).eq('friend_id', id);
   alert('Removed!');
   loadFriendsList();
+};
+
+// --- Search & Leaderboard Logic ---
+el('tb-search').onclick = () => {
+  openModal('🔍 Search & Leaderboard', `
+    <div class="pm-modal-tabs">
+      <div class="pm-modal-tab active" onclick="switchSearchTab('users', this)">Users</div>
+      <div class="pm-modal-tab" onclick="switchSearchTab('rooms', this)">Rooms</div>
+      <div class="pm-modal-tab" onclick="switchSearchTab('leaderboard', this)">Top Users</div>
+    </div>
+    
+    <div id="search-users">
+      <div style="display:flex; gap:8px; margin-bottom:15px;">
+        <input type="text" id="usr-query" placeholder="Username or ID..." style="flex:1; padding:10px; border-radius:8px; border:1px solid var(--line);" />
+        <button class="btn-sm" onclick="searchUsers()">Search</button>
+      </div>
+      <div id="usr-results"><p style="color:var(--muted);text-align:center;font-size:13px;">Search to find users.</p></div>
+    </div>
+    
+    <div id="search-rooms" class="hidden">
+      <div style="display:flex; gap:8px; margin-bottom:15px;">
+        <input type="text" id="rm-query" placeholder="Room Name or ID..." style="flex:1; padding:10px; border-radius:8px; border:1px solid var(--line);" />
+        <button class="btn-sm" onclick="searchRooms()">Search</button>
+      </div>
+      <div id="rm-results"><p style="color:var(--muted);text-align:center;font-size:13px;">Search to find rooms.</p></div>
+    </div>
+    
+    <div id="search-leaderboard" class="hidden">
+      <div id="lb-results"><p style="color:var(--muted);text-align:center;font-size:13px;">Loading...</p></div>
+    </div>
+  `);
+  loadLeaderboard();
+};
+
+window.switchSearchTab = (tab, btn) => {
+  document.querySelectorAll('.pm-modal-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  el('search-users').classList.toggle('hidden', tab !== 'users');
+  el('search-rooms').classList.toggle('hidden', tab !== 'rooms');
+  el('search-leaderboard').classList.toggle('hidden', tab !== 'leaderboard');
+};
+
+window.searchUsers = async () => {
+  const q = el('usr-query').value.trim();
+  if(!q) return;
+  const num = parseInt(q);
+  let query = sb.from('app_users').select('user_id, username, avatar_url, is_admin, rating_points, id_color, is_verified').limit(10);
+  if (!isNaN(num)) query = query.eq('user_id', num);
+  else query = query.ilike('username', `%${q}%`);
+  
+  const { data, error } = await query;
+  if (error || !data || data.length === 0) return el('usr-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No users found.</p>';
+  
+  el('usr-results').innerHTML = data.map(u => `
+    <div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;">
+      <div class="friend-info">
+        <span class="friend-av">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (u.avatar_url||'🙂')}</span>
+        <span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span>
+      </div>
+      <span style="font-size:12px;color:var(--muted)">#${u.user_id}</span>
+    </div>
+  `).join('');
+};
+
+window.searchRooms = async () => {
+  const q = el('rm-query').value.trim();
+  if(!q) return;
+  const num = parseInt(q);
+  let query = sb.from('rooms').select('room_id, name, rating_points, is_vip').limit(10);
+  if (!isNaN(num)) query = query.eq('room_id', num);
+  else query = query.ilike('name', `%${q}%`);
+  
+  const { data, error } = await query;
+  if (error || !data || data.length === 0) return el('rm-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No rooms found.</p>';
+  
+  el('rm-results').innerHTML = data.map(r => `
+    <div class="friend-row" onclick="joinRoom(${r.room_id})" style="cursor:pointer;">
+      <div class="friend-info">
+        <span class="friend-av" style="background:transparent;">${r.is_vip ? '⭐' : '🏠'}</span>
+        <span class="friend-name">${escapeHtml(r.name)}</span>
+      </div>
+      <span style="font-size:12px;color:var(--muted)">${r.rating_points} pts</span>
+    </div>
+  `).join('');
+};
+
+window.loadLeaderboard = async () => {
+  const { data, error } = await sb.from('app_users').select('user_id, username, avatar_url, rating_points, is_admin, id_color').neq('user_id', 1).order('rating_points', { ascending: false }).limit(20);
+  if (error || !data) return el('lb-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">Error loading leaderboard.</p>';
+  
+  el('lb-results').innerHTML = data.map((u, i) => `
+    <div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;">
+      <div class="friend-info" style="gap:5px;">
+        <div class="lb-rank">${i + 1}</div>
+        <span class="friend-av" style="width:24px; height:24px; font-size:14px; margin-left:5px;">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (u.avatar_url||'🙂')}</span>
+        <span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span>
+      </div>
+      <span style="font-size:12px;color:var(--muted); font-weight:bold;">${u.rating_points} pts</span>
+    </div>
+  `).join('');
 };
 
 // --- View Profile Logic ---
@@ -1014,115 +1115,18 @@ el('tb-admin').onclick = async () => {
   `);
 };
 
-window.adminMintPrompt = async () => {
-  const amt = prompt('Amount to Mint:', '100'); const target = prompt('Mint to (tax/fund):', 'fund');
-  const treasury = await getTreasury();
-  if(target === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) + parseFloat(amt) });
-  else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(amt) });
-  alert('Minted!'); el('tb-admin').click();
-};
-
-window.adminRewardPrompt = async () => {
-  const id = prompt('User ID to reward:'); const amt = prompt('Reward Amount:', '10'); const src = prompt('Pay from (fund/tax):', 'fund');
-  const treasury = await getTreasury();
-  const { data: u } = await sb.from('app_users').select('currency').eq('user_id', id).single();
-  if(!u) return alert('User not found.');
-  await sb.from('app_users').update({ currency: parseFloat(u.currency) + parseFloat(amt) }).eq('user_id', id);
-  if(src === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) - parseFloat(amt) });
-  else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - parseFloat(amt) });
-  alert('Reward sent!'); el('tb-admin').click();
-};
-
-window.adminCreateCodePrompt = async () => {
-  const code = prompt('Code string:', 'DOT' + Math.floor(Math.random() * 1000)); const val = prompt('Reward Value:', '10'); const uses = prompt('Max Uses:', '1');
-  await sb.from('redeem_codes').insert([{ code: code, reward_value: parseFloat(val), max_uses: parseInt(uses) }]);
-  alert(`Code created: ${code}`); el('tb-admin').click();
-};
-
-window.adminTransferTreasuryPrompt = async () => {
-  const amt = prompt('Amount to transfer:'); const src = prompt('From (fund/tax):', 'fund');
-  const treasury = await getTreasury();
-  const { data: admin } = await sb.from('app_users').select('currency').eq('user_id', 1).single();
-  await sb.from('app_users').update({ currency: parseFloat(admin.currency) + parseFloat(amt) }).eq('user_id', 1);
-  if(src === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) - parseFloat(amt) });
-  else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - parseFloat(amt) });
-  alert('Transferred to Admin!'); el('tb-admin').click();
-};
-
-window.adminBurnPrompt = async () => {
-  const amt = prompt('Amount to burn:'); const src = prompt('From (fund/tax):', 'fund');
-  const treasury = await getTreasury();
-  if(src === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) - parseFloat(amt) });
-  else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - parseFloat(amt) });
-  alert('Burned!'); el('tb-admin').click();
-};
-
-window.adminVerifyPrompt = async () => {
-  const id = prompt('Enter User ID to verify:');
-  const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single();
-  if(!u) return alert('User not found.');
-  if(!u.verification_requested) return alert('This user has not requested verification.');
-  await sb.from('app_users').update({ is_verified: true, verification_requested: false }).eq('user_id', id);
-  alert('User verified successfully!'); el('tb-admin').click();
-};
-
-window.adminBanPrompt = async () => {
-  const id = prompt('Enter User ID to ban:'); const mins = prompt('Ban duration (minutes):', '60'); const fine = prompt('Fine amount (Dots):', '10');
-  const { data: u } = await sb.from('app_users').select('currency').eq('user_id', id).single();
-  if(!u) return alert('User not found.');
-  const banUntil = new Date(Date.now() + parseInt(mins) * 60000).toISOString();
-  let newCurrency = parseFloat(u.currency);
-  if(parseFloat(fine) > 0) {
-    newCurrency -= parseFloat(fine);
-    if(newCurrency < 0) newCurrency = 0;
-    const treasury = await getTreasury();
-    await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(fine) });
-  }
-  await sb.from('app_users').update({ banned_until: banUntil, current_room_id: 3, currency: newCurrency, ban_fine: parseFloat(fine) }).eq('user_id', id);
-  alert('User banned and moved to Room 3!'); el('tb-admin').click();
-};
-
-window.adminUnbanPrompt = async () => {
-  const id = prompt('Enter User ID to unban:');
-  await sb.from('app_users').update({ banned_until: new Date().toISOString(), current_room_id: 1, ban_fine: 0 }).eq('user_id', id);
-  alert('User unbanned!'); el('tb-admin').click();
-};
-
-window.adminDotsPrompt = async () => {
-  const id = prompt('Enter User ID:'); const amt = prompt('Amount (use negative to remove):', '10');
-  const { data: u } = await sb.from('app_users').select('currency').eq('user_id', id).single();
-  if(!u) return alert('User not found.');
-  let newBal = parseFloat(u.currency) + parseFloat(amt);
-  if(newBal < 0) newBal = 0;
-  await sb.from('app_users').update({ currency: newBal }).eq('user_id', id);
-  alert('Dots updated!'); el('tb-admin').click();
-};
-
-window.adminRatingPrompt = async () => {
-  const id = prompt('Enter User ID:'); const amt = prompt('Amount (use negative to remove):', '100');
-  const { data: u } = await sb.from('app_users').select('rating_points').eq('user_id', id).single();
-  if(!u) return alert('User not found.');
-  let newScore = parseInt(u.rating_points) + parseInt(amt);
-  if(newScore < 0) newScore = 0;
-  await sb.from('app_users').update({ rating_points: newScore }).eq('user_id', id);
-  alert('Rating updated!'); el('tb-admin').click();
-};
-
-window.adminClearRoomPrompt = async () => {
-  const id = prompt('Enter Room ID to clear messages:');
-  if(!confirm('Are you sure? This will delete ALL messages in this room.')) return;
-  await sb.from('public_messages').delete().eq('room_id', id);
-  alert('Messages cleared!'); if(currentRoom == id) loadMessages();
-};
-
-window.adminDeleteRoomPrompt = async () => {
-  const id = prompt('Enter Room ID to delete:');
-  if(id == 1 || id == 2 || id == 3) return alert('Cannot delete system rooms (1, 2, 3).');
-  if(!confirm('Are you sure?')) return;
-  await sb.from('public_messages').delete().eq('room_id', id);
-  await sb.from('rooms').delete().eq('room_id', id);
-  alert('Room deleted!'); joinRoom(1);
-};
+window.adminMintPrompt = async () => { const amt = prompt('Amount to Mint:', '100'); const target = prompt('Mint to (tax/fund):', 'fund'); const treasury = await getTreasury(); if(target === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) + parseFloat(amt) }); else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(amt) }); alert('Minted!'); el('tb-admin').click(); };
+window.adminRewardPrompt = async () => { const id = prompt('User ID to reward:'); const amt = prompt('Reward Amount:', '10'); const src = prompt('Pay from (fund/tax):', 'fund'); const treasury = await getTreasury(); const { data: u } = await sb.from('app_users').select('currency').eq('user_id', id).single(); if(!u) return alert('User not found.'); await sb.from('app_users').update({ currency: parseFloat(u.currency) + parseFloat(amt) }).eq('user_id', id); if(src === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) - parseFloat(amt) }); else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - parseFloat(amt) }); alert('Reward sent!'); el('tb-admin').click(); };
+window.adminCreateCodePrompt = async () => { const code = prompt('Code string:', 'DOT' + Math.floor(Math.random() * 1000)); const val = prompt('Reward Value:', '10'); const uses = prompt('Max Uses:', '1'); await sb.from('redeem_codes').insert([{ code: code, reward_value: parseFloat(val), max_uses: parseInt(uses) }]); alert(`Code created: ${code}`); el('tb-admin').click(); };
+window.adminTransferTreasuryPrompt = async () => { const amt = prompt('Amount to transfer:'); const src = prompt('From (fund/tax):', 'fund'); const treasury = await getTreasury(); const { data: admin } = await sb.from('app_users').select('currency').eq('user_id', 1).single(); await sb.from('app_users').update({ currency: parseFloat(admin.currency) + parseFloat(amt) }).eq('user_id', 1); if(src === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) - parseFloat(amt) }); else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - parseFloat(amt) }); alert('Transferred to Admin!'); el('tb-admin').click(); };
+window.adminBurnPrompt = async () => { const amt = prompt('Amount to burn:'); const src = prompt('From (fund/tax):', 'fund'); const treasury = await getTreasury(); if(src === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) - parseFloat(amt) }); else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - parseFloat(amt) }); alert('Burned!'); el('tb-admin').click(); };
+window.adminVerifyPrompt = async () => { const id = prompt('Enter User ID to verify:'); const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single(); if(!u) return alert('User not found.'); if(!u.verification_requested) return alert('This user has not requested verification.'); await sb.from('app_users').update({ is_verified: true, verification_requested: false }).eq('user_id', id); alert('User verified successfully!'); el('tb-admin').click(); };
+window.adminBanPrompt = async () => { const id = prompt('Enter User ID to ban:'); const mins = prompt('Ban duration (minutes):', '60'); const fine = prompt('Fine amount (Dots):', '10'); const { data: u } = await sb.from('app_users').select('currency').eq('user_id', id).single(); if(!u) return alert('User not found.'); const banUntil = new Date(Date.now() + parseInt(mins) * 60000).toISOString(); let newCurrency = parseFloat(u.currency); if(parseFloat(fine) > 0) { newCurrency -= parseFloat(fine); if(newCurrency < 0) newCurrency = 0; const treasury = await getTreasury(); await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(fine) }); } await sb.from('app_users').update({ banned_until: banUntil, current_room_id: 3, currency: newCurrency, ban_fine: parseFloat(fine) }).eq('user_id', id); alert('User banned and moved to Room 3!'); el('tb-admin').click(); };
+window.adminUnbanPrompt = async () => { const id = prompt('Enter User ID to unban:'); await sb.from('app_users').update({ banned_until: new Date().toISOString(), current_room_id: 1, ban_fine: 0 }).eq('user_id', id); alert('User unbanned!'); el('tb-admin').click(); };
+window.adminDotsPrompt = async () => { const id = prompt('Enter User ID:'); const amt = prompt('Amount (use negative to remove):', '10'); const { data: u } = await sb.from('app_users').select('currency').eq('user_id', id).single(); if(!u) return alert('User not found.'); let newBal = parseFloat(u.currency) + parseFloat(amt); if(newBal < 0) newBal = 0; await sb.from('app_users').update({ currency: newBal }).eq('user_id', id); alert('Dots updated!'); el('tb-admin').click(); };
+window.adminRatingPrompt = async () => { const id = prompt('Enter User ID:'); const amt = prompt('Amount (use negative to remove):', '100'); const { data: u } = await sb.from('app_users').select('rating_points').eq('user_id', id).single(); if(!u) return alert('User not found.'); let newScore = parseInt(u.rating_points) + parseInt(amt); if(newScore < 0) newScore = 0; await sb.from('app_users').update({ rating_points: newScore }).eq('user_id', id); alert('Rating updated!'); el('tb-admin').click(); };
+window.adminClearRoomPrompt = async () => { const id = prompt('Enter Room ID to clear messages:'); if(!confirm('Are you sure? This will delete ALL messages in this room.')) return; await sb.from('public_messages').delete().eq('room_id', id); alert('Messages cleared!'); if(currentRoom == id) loadMessages(); };
+window.adminDeleteRoomPrompt = async () => { const id = prompt('Enter Room ID to delete:'); if(id == 1 || id == 2 || id == 3) return alert('Cannot delete system rooms (1, 2, 3).'); if(!confirm('Are you sure?')) return; await sb.from('public_messages').delete().eq('room_id', id); await sb.from('rooms').delete().eq('room_id', id); alert('Room deleted!'); joinRoom(1); };
 
 function openModal(t,b,wide){el('modal-root').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()"><div class="modal-card ${wide?'wide':''}"><span class="close-x" onclick="closeModal()">✕</span><h3 style="margin:0 0 16px;font-size:16px;">${t}</h3>${b}</div></div>`;}
 function closeModal(){el('modal-root').innerHTML='';}
