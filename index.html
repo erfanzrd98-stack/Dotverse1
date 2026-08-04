@@ -66,7 +66,7 @@
   .ctx-item{padding:9px 12px;font-size:13px;font-weight:600;border-radius:7px;cursor:pointer;}
   .ctx-item:hover{background:#f4f5f7;}
   
-  /* Profile Styles */
+  /* Profile Styles (Shared) */
   .p-row{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f4f5f7;padding:10px 0;min-height:40px;}
   .p-label{width:45%;font-size:13px;color:var(--muted);font-weight:600;border-right:1px solid var(--line);padding-right:10px;text-align:left;}
   .p-val{width:55%;padding-left:10px;display:flex;justify-content:flex-end;align-items:center;}
@@ -232,13 +232,8 @@ function getPmColorScheme(user) {
 }
 
 // --- Treasury Helper ---
-async function getTreasury() {
-  const { data } = await sb.from('admin_settings').select('*').eq('id', 1).single();
-  return data;
-}
-async function updateTreasury(updates) {
-  await sb.from('admin_settings').update(updates).eq('id', 1);
-}
+async function getTreasury() { const { data } = await sb.from('admin_settings').select('*').eq('id', 1).single(); return data; }
+async function updateTreasury(updates) { await sb.from('admin_settings').update(updates).eq('id', 1); }
 
 // --- Chat Room Logic ---
 async function joinRoom(id){
@@ -254,7 +249,6 @@ async function joinRoom(id){
 
   await loadMessages();
 
-  // Banned Room Experience
   const isBanned = new Date(currentUser.banned_until) > new Date();
   if (id === 3 && isBanned) {
     el('composer').classList.add('hidden');
@@ -372,7 +366,7 @@ function openPMPopup(sender, text, senderData) {
     <div class="pm-popup-text" style="background:${scheme.body};">${escapeHtml(text)}</div>
     <div class="pm-popup-actions" id="actions-${popupId}">
       <button style="background:${scheme.footer}; border-color:${scheme.border};" onclick="showReplyBox('${popupId}', '${sender}')">Reply</button>
-      <button style="background:${scheme.footer}; border-color:${scheme.border};" onclick="alert('Profile view coming soon!'); document.getElementById('${popupId}').remove();">About user</button>
+      <button style="background:${scheme.footer}; border-color:${scheme.border};" onclick="viewProfile('${senderData.user_id}'); document.getElementById('${popupId}').remove();">About user</button>
     </div>
     <div class="pm-popup-reply-box hidden" id="reply-${popupId}">
       <input type="text" id="input-${popupId}" placeholder="Type reply..." />
@@ -544,6 +538,57 @@ window.removeFriend = async (id, name) => {
   loadFriendsList();
 };
 
+// --- View Profile Logic ---
+window.viewProfile = async (uid) => {
+  closeCtx();
+  const { data: u, error } = await sb.from('app_users').select('*').eq('user_id', uid).single();
+  if (error || !u) return alert('User not found.');
+
+  const { data: fr } = await sb.from('friends').select('id').eq('user_id', currentUser.user_id).eq('friend_id', uid).maybeSingle();
+  const isFriend = !!fr;
+  const joinDate = new Date(u.created_at).toLocaleDateString();
+  const verifiedHtml = u.is_verified ? '<span style="color:#16a34a; font-weight:600;">✔ Verified</span>' : '<span style="color:#ef4444; font-weight:600;">Unverified</span>';
+  
+  const vpCard = `
+    <div style="text-align:center; margin-bottom:20px;">
+      <div style="width:64px; height:64px; border-radius:50%; background:var(--dot-soft); display:inline-flex; align-items:center; justify-content:center; font-size:32px; overflow:hidden; margin-bottom:10px; border: 2px solid var(--line);">
+        ${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (u.avatar_url || '🙂')}
+      </div>
+      <div style="font-size:18px; font-weight:700; color:${u.id_color || '#000'};">${escapeHtml(u.username)}</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:4px;">#${u.user_id} · ${verifiedHtml}</div>
+    </div>
+    
+    <div class="p-row" style="border-bottom:1px solid #f4f5f7;">
+      <span class="p-label" style="width:40%; text-align:left;">Rating</span>
+      <div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${u.rating_points} pts</span></div>
+    </div>
+    <div class="p-row" style="border-bottom:1px solid #f4f5f7;">
+      <span class="p-label" style="width:40%; text-align:left;">Gender</span>
+      <div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${u.gender === 'female' ? 'Female' : 'Male'}</span></div>
+    </div>
+    <div class="p-row" style="border-bottom:1px solid #f4f5f7;">
+      <span class="p-label" style="width:40%; text-align:left;">City</span>
+      <div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${escapeHtml(u.city || 'Unknown')}</span></div>
+    </div>
+    <div class="p-row" style="border-bottom:none;">
+      <span class="p-label" style="width:40%; text-align:left;">Join Date</span>
+      <div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${joinDate}</span></div>
+    </div>
+    
+    <div style="display:flex; gap:8px; margin-top:20px;">
+      ${isFriend ? 
+        `<button class="p-btn" style="background:#fee2e2; color:#ef4444; flex:1;" onclick="removeFriend(${u.user_id}, '${escapeHtml(u.username)}'); closeModal();">➖ Remove Friend</button>` 
+        : 
+        `<button class="p-btn" style="background:#eef0ff; color:var(--dot); flex:1;" onclick="addFriend('${escapeHtml(u.username)}'); closeModal();">➕ Add Friend</button>`
+      }
+      <button class="p-btn" style="background:var(--dot); color:#fff; flex:1;" onclick="sendDotsPrompt('${u.user_id}'); closeModal();">🪙 Send Dots</button>
+    </div>
+    <button class="p-btn" style="background:#f4f5f7; color:var(--ink); margin-top:8px;" onclick="startNewPM('${escapeHtml(u.username)}'); closeModal();">💬 Send Private Message</button>
+  `;
+  
+  openModal(`👤 User Profile`, vpCard);
+};
+
 // --- Fine Payment Logic ---
 window.payFine = async () => {
   if(currentUser.currency < currentUser.ban_fine) return alert('Not enough dots to pay fine.');
@@ -609,7 +654,6 @@ window.openRedeemModal = () => {
 window.redeemCode = async () => {
   const code = el('rd-code').value.trim();
   if(!code) return alert('Enter a code.');
-  
   const { data: rc } = await sb.from('redeem_codes').select('*').eq('code', code).single();
   if(!rc) return el('rd-res').innerHTML = '<span style="color:#ef4444">Invalid code.</span>';
   if(rc.uses >= rc.max_uses) return el('rd-res').innerHTML = '<span style="color:#ef4444">Code expired.</span>';
@@ -617,7 +661,6 @@ window.redeemCode = async () => {
   await sb.from('redeem_codes').update({ uses: rc.uses + 1 }).eq('code', code);
   const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency + parseFloat(rc.reward_value) }).eq('user_id', currentUser.user_id).select().single();
   currentUser = updatedUser;
-  
   el('rd-res').innerHTML = `<span style="color:#16a34a">Success! +${rc.reward_value} Ð</span>`;
 };
 
@@ -665,8 +708,8 @@ window.playRoulette = async () => {
   const { data: updatedUser, error: e1 } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single();
   if (e1) return alert('Error processing bet.');
   currentUser = updatedUser;
-
   const treasury = await getTreasury();
+
   const result = Math.floor(Math.random() * 37); 
   let win = false, multiplier = 0;
 
@@ -687,7 +730,6 @@ window.playRoulette = async () => {
   } else {
     await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + amt });
   }
-
   document.getElementById('rl-res').textContent = resultText;
   document.getElementById('rl-res').style.color = win ? '#16a34a' : '#ef4444';
 };
@@ -699,7 +741,7 @@ window.openRPSModal = () => {
     <input type="number" id="rps-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); margin-bottom:15px;" />
     <div style="display:flex; gap:10px;">
       <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('rock')">✊</button>
-      <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button>
+      <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playPMS('paper')">✋</button>
       <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button>
     </div>
     <div id="rps-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>
@@ -740,7 +782,6 @@ window.playRPS = async (choice) => {
     await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + amt });
     resultText += 'LOST!';
   }
-
   const resEl = document.getElementById('rps-res');
   resEl.innerHTML = resultText;
   resEl.style.color = tie ? '#ca8a04' : (win ? '#16a34a' : '#ef4444');
@@ -807,13 +848,9 @@ el('tb-profile').onclick = () => {
   let genderHtml = `<select id="p-gender" class="p-select" onchange="window._gender=this.value"><option value="male" ${currentUser.gender==='male'?'selected':''}>Male</option><option value="female" ${currentUser.gender==='female'?'selected':''}>Female</option></select>`;
   
   let verifyHtml = '';
-  if (currentUser.is_verified) {
-    verifyHtml = `<span class="p-bubble" style="background:#dcfce7;color:#16a34a;">Verified ✔</span>`;
-  } else if (currentUser.verification_requested) {
-    verifyHtml = `<span class="p-bubble" style="background:#fef9c3;color:#ca8a04;">Pending...</span>`;
-  } else {
-    verifyHtml = `<button class="p-btn p-btn-save" style="width:100px;font-size:12px;margin:0;" onclick="requestVerification()">Request</button>`;
-  }
+  if (currentUser.is_verified) verifyHtml = `<span class="p-bubble" style="background:#dcfce7;color:#16a34a;">Verified ✔</span>`;
+  else if (currentUser.verification_requested) verifyHtml = `<span class="p-bubble" style="background:#fef9c3;color:#ca8a04;">Pending...</span>`;
+  else verifyHtml = `<button class="p-btn p-btn-save" style="width:100px;font-size:12px;margin:0;" onclick="requestVerification()">Request</button>`;
 
   openModal('👤 Your Profile',`
     <div style="max-width:320px;margin:0 auto;">
@@ -825,7 +862,6 @@ el('tb-profile').onclick = () => {
       <div class="p-row"><span class="p-label">Name color</span><div class="p-val">${coHtml}</div></div>
       <div class="p-row"><span class="p-label">Verify ID</span><div class="p-val">${verifyHtml}</div></div>
       <div class="p-row" style="border-bottom:none;"><span class="p-label">ID Number</span><div class="p-val"><span class="p-bubble">#${currentUser.user_id}</span></div></div>
-      
       <div class="p-btn-row">
         <button class="p-btn p-btn-logout" onclick="location.reload()">Logout</button>
         <button class="p-btn p-btn-save" onclick="saveProfile()">Save Changes</button>
@@ -954,7 +990,7 @@ window.transferOwnership = async () => {
   alert('Ownership transferred!'); el('tb-roominfo').click();
 };
 
-// --- Admin Panel Logic (Full Treasury, Economy, Rewards, Codes) ---
+// --- Admin Panel Logic ---
 el('tb-admin').onclick = async () => {
   const treasury = await getTreasury();
   openModal('👑 Admin Panel', `
@@ -962,13 +998,11 @@ el('tb-admin').onclick = async () => {
       <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Tax Balance:</span><b>${parseFloat(treasury.tax_balance).toFixed(2)} Ð</b></div>
       <div style="display:flex; justify-content:space-between;"><span>Fund Balance:</span><b>${parseFloat(treasury.fund_balance).toFixed(2)} Ð</b></div>
     </div>
-    
     <div class="list-row" onclick="adminMintPrompt()"><span style="font-size:20px;">🖨️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Mint Dots</div><div style="font-size:11px; color:var(--muted);">Create new dots to Treasury</div></div></div>
     <div class="list-row" onclick="adminRewardPrompt()"><span style="font-size:20px;">🎁</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Give Reward</div><div style="font-size:11px; color:var(--muted);">Reward user from Treasury</div></div></div>
     <div class="list-row" onclick="adminCreateCodePrompt()"><span style="font-size:20px;">🎟️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Create Redeem Code</div><div style="font-size:11px; color:var(--muted);">Generate gift codes</div></div></div>
     <div class="list-row" onclick="adminTransferTreasuryPrompt()"><span style="font-size:20px;">🔄</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Transfer Treasury</div><div style="font-size:11px; color:var(--muted);">Move funds to Admin</div></div></div>
     <div class="list-row" onclick="adminBurnPrompt()"><span style="font-size:20px;">🔥</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Burn Tokens</div><div style="font-size:11px; color:var(--muted);">Destroy tokens</div></div></div>
-    
     <div class="list-row" onclick="adminVerifyPrompt()"><span style="font-size:20px;">✔️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Verify User ID</div><div style="font-size:11px; color:var(--muted);">Approve verification</div></div></div>
     <div class="list-row" onclick="adminBanPrompt()"><span style="font-size:20px;">🔨</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Ban User</div><div style="font-size:11px; color:var(--muted);">Send to Room 3 & fine</div></div></div>
     <div class="list-row" onclick="adminUnbanPrompt()"><span style="font-size:20px;">🔓</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Unban User</div><div style="font-size:11px; color:var(--muted);">Free from Room 3</div></div></div>
@@ -980,8 +1014,7 @@ el('tb-admin').onclick = async () => {
 };
 
 window.adminMintPrompt = async () => {
-  const amt = prompt('Amount to Mint:', '100');
-  const target = prompt('Mint to (tax/fund):', 'fund');
+  const amt = prompt('Amount to Mint:', '100'); const target = prompt('Mint to (tax/fund):', 'fund');
   const treasury = await getTreasury();
   if(target === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) + parseFloat(amt) });
   else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(amt) });
@@ -989,9 +1022,7 @@ window.adminMintPrompt = async () => {
 };
 
 window.adminRewardPrompt = async () => {
-  const id = prompt('User ID to reward:');
-  const amt = prompt('Reward Amount:', '10');
-  const src = prompt('Pay from (fund/tax):', 'fund');
+  const id = prompt('User ID to reward:'); const amt = prompt('Reward Amount:', '10'); const src = prompt('Pay from (fund/tax):', 'fund');
   const treasury = await getTreasury();
   const { data: u } = await sb.from('app_users').select('currency').eq('user_id', id).single();
   if(!u) return alert('User not found.');
@@ -1002,16 +1033,13 @@ window.adminRewardPrompt = async () => {
 };
 
 window.adminCreateCodePrompt = async () => {
-  const code = prompt('Code string:', 'DOT' + Math.floor(Math.random() * 1000));
-  const val = prompt('Reward Value:', '10');
-  const uses = prompt('Max Uses:', '1');
+  const code = prompt('Code string:', 'DOT' + Math.floor(Math.random() * 1000)); const val = prompt('Reward Value:', '10'); const uses = prompt('Max Uses:', '1');
   await sb.from('redeem_codes').insert([{ code: code, reward_value: parseFloat(val), max_uses: parseInt(uses) }]);
   alert(`Code created: ${code}`); el('tb-admin').click();
 };
 
 window.adminTransferTreasuryPrompt = async () => {
-  const amt = prompt('Amount to transfer:');
-  const src = prompt('From (fund/tax):', 'fund');
+  const amt = prompt('Amount to transfer:'); const src = prompt('From (fund/tax):', 'fund');
   const treasury = await getTreasury();
   const { data: admin } = await sb.from('app_users').select('currency').eq('user_id', 1).single();
   await sb.from('app_users').update({ currency: parseFloat(admin.currency) + parseFloat(amt) }).eq('user_id', 1);
@@ -1021,8 +1049,7 @@ window.adminTransferTreasuryPrompt = async () => {
 };
 
 window.adminBurnPrompt = async () => {
-  const amt = prompt('Amount to burn:');
-  const src = prompt('From (fund/tax):', 'fund');
+  const amt = prompt('Amount to burn:'); const src = prompt('From (fund/tax):', 'fund');
   const treasury = await getTreasury();
   if(src === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) - parseFloat(amt) });
   else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - parseFloat(amt) });
@@ -1039,9 +1066,7 @@ window.adminVerifyPrompt = async () => {
 };
 
 window.adminBanPrompt = async () => {
-  const id = prompt('Enter User ID to ban:');
-  const mins = prompt('Ban duration (minutes):', '60');
-  const fine = prompt('Fine amount (Dots):', '10');
+  const id = prompt('Enter User ID to ban:'); const mins = prompt('Ban duration (minutes):', '60'); const fine = prompt('Fine amount (Dots):', '10');
   const { data: u } = await sb.from('app_users').select('currency').eq('user_id', id).single();
   if(!u) return alert('User not found.');
   const banUntil = new Date(Date.now() + parseInt(mins) * 60000).toISOString();
@@ -1063,8 +1088,7 @@ window.adminUnbanPrompt = async () => {
 };
 
 window.adminDotsPrompt = async () => {
-  const id = prompt('Enter User ID:');
-  const amt = prompt('Amount (use negative to remove):', '10');
+  const id = prompt('Enter User ID:'); const amt = prompt('Amount (use negative to remove):', '10');
   const { data: u } = await sb.from('app_users').select('currency').eq('user_id', id).single();
   if(!u) return alert('User not found.');
   let newBal = parseFloat(u.currency) + parseFloat(amt);
@@ -1074,8 +1098,7 @@ window.adminDotsPrompt = async () => {
 };
 
 window.adminRatingPrompt = async () => {
-  const id = prompt('Enter User ID:');
-  const amt = prompt('Amount (use negative to remove):', '100');
+  const id = prompt('Enter User ID:'); const amt = prompt('Amount (use negative to remove):', '100');
   const { data: u } = await sb.from('app_users').select('rating_points').eq('user_id', id).single();
   if(!u) return alert('User not found.');
   let newScore = parseInt(u.rating_points) + parseInt(amt);
@@ -1110,7 +1133,7 @@ function showCtx(e, u, uid){
   m.style.left=e.clientX+'px';m.style.top=e.clientY+'px';
   m.innerHTML=`
     <div class="ctx-item" onclick="startNewPM('${u}');closeCtx();">💬 Private Message</div>
-    <div class="ctx-item" onclick="alert('Profile view coming soon!');closeCtx();">👤 View Profile</div>
+    <div class="ctx-item" onclick="viewProfile('${uid}');closeCtx();">👤 View Profile</div>
     <div class="ctx-item" onclick="addFriend('${u}');closeCtx();">➕ Add Friend</div>
     <div class="ctx-item" onclick="sendDotsPrompt('${uid}');closeCtx();">🪙 Send Dots</div>`;
   el('context-root').innerHTML='';el('context-root').appendChild(m);
