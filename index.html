@@ -214,7 +214,6 @@ async function startApp(){
 }
 
 function updateTopBar(){
-  // Display currency with 2 decimal places
   const dots = parseFloat(currentUser.currency || 0).toFixed(2);
   el('tb-dots-count').textContent = currentUser.is_admin ? '∞' : dots;
 }
@@ -435,9 +434,40 @@ window.removeFriend = async (id, name) => {
   el('tb-pms').click();
 };
 
-// --- Dots (Currency) Logic ---
+// --- Dots & Services Logic ---
 el('tb-dots').onclick = () => {
-  openModal('Transfer Dots',`
+  const bal = parseFloat(currentUser.currency || 0).toFixed(2);
+  openModal('Dots & Services', `
+    <div style="text-align:center; margin-bottom:20px; background:var(--dot-soft); padding:15px; border-radius:12px;">
+      <div style="font-size:32px; font-weight:800; color:var(--dot);">${currentUser.is_admin ? '∞' : bal} Ð</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:5px;">Your Balance</div>
+    </div>
+    <div class="list-row" onclick="openTransferDotsModal()">
+      <span style="font-size:20px;">💸</span>
+      <div style="flex:1; margin-left:10px;">
+        <div style="font-weight:600; font-size:14px;">Send Dots</div>
+        <div style="font-size:11px; color:var(--muted);">Transfer to another user (10% tax)</div>
+      </div>
+    </div>
+    <div class="list-row" onclick="alert('Coming soon!')">
+      <span style="font-size:20px;">🛍️</span>
+      <div style="flex:1; margin-left:10px;">
+        <div style="font-weight:600; font-size:14px;">Shop & Gifts</div>
+        <div style="font-size:11px; color:var(--muted);">Buy gifts and items</div>
+      </div>
+    </div>
+    <div class="list-row" onclick="alert('Coming soon!')">
+      <span style="font-size:20px;">🎒</span>
+      <div style="flex:1; margin-left:10px;">
+        <div style="font-weight:600; font-size:14px;">Assets</div>
+        <div style="font-size:11px; color:var(--muted);">View and sell your gifts</div>
+      </div>
+    </div>
+  `);
+};
+
+window.openTransferDotsModal = () => {
+  openModal('Send Dots',`
     <label class="field">Recipient Username</label><input type="text" id="td-to" placeholder="e.g. DotMaster" />
     <label class="field">Amount (Ð)</label><input type="number" id="td-amt" placeholder="e.g. 1.50" step="0.01" min="0.01" />
     <p style="font-size:12px;color:var(--muted);margin-top:5px;">10% tax applies. Receiver gets 90%.</p>
@@ -458,14 +488,11 @@ window.transferDots = async () => {
   const tax = amt * 0.1;
   const receiverGets = amt - tax;
 
-  // Deduct from sender
   const { data: updatedSender, error: e1 } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single();
   if(e1) return alert('Error sending dots.');
   
-  // Add to receiver
   await sb.from('app_users').update({ currency: receiver.currency + receiverGets }).eq('user_id', receiver.user_id);
   
-  // Add tax to Admin (DotMaster)
   const { data: admin } = await sb.from('app_users').select('currency').eq('user_id', 1).single();
   if (admin) await sb.from('app_users').update({ currency: admin.currency + tax }).eq('user_id', 1);
 
@@ -473,11 +500,15 @@ window.transferDots = async () => {
   updateTopBar();
   alert(`Success! Sent ${amt}Ð to ${to}. They received ${receiverGets.toFixed(2)}Ð.`);
   closeModal();
+  el('tb-dots').click(); // Re-open main dots menu to show new balance
 };
 
 window.sendDotsPrompt = (u) => { 
   el('tb-dots').click(); 
-  setTimeout(() => { el('td-to').value = u; }, 100); 
+  setTimeout(() => { 
+    openTransferDotsModal();
+    el('td-to').value = u; 
+  }, 200); 
 };
 
 // --- Profile Logic ---
