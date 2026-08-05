@@ -97,7 +97,7 @@
   .pm-history-view{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:16px;}
   .pm-history-msg{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;word-break:break-word;color:#000;}
 
-  /* Community & Search Tabs */
+  /* Community, Search & Dots Tabs */
   .pm-modal-tabs{display:flex;gap:4px;margin-bottom:20px;background:#f4f5f7;border-radius:10px;padding:3px;}
   .pm-modal-tab{flex:1;text-align:center;padding:8px 0;font-size:13.5px;font-weight:600;border-radius:8px;cursor:pointer;color:var(--muted);}
   .pm-modal-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1);}
@@ -172,7 +172,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const ADMIN_GIF = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/Dot.gif";
 
-let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null;
+let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, userStatusSubscription = null;
 const userCache = {}; 
 const AVATARS = ["🦊","🦄","🐰","🐭","🍄","☢️","🌼","♥️","♠️","♣️","♦️","👺","👻","👽","⛄","💀","👤","🧑🏻‍🚀","🧒🏻","👩🏻","🍁","🍀","🌲","⚡","🐥","🛡️","♂️","♀️"];
 const COLORS = ["#000000", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280", "#f5780e"];
@@ -217,12 +217,14 @@ async function startApp(){
   joinRoom(1);
   subscribeToPMs();
   subscribeToBroadcasts();
+  subscribeToUserStatus();
 }
 
 // --- Rating & Color Logic ---
 function getPmColorScheme(user) {
   if (!user) return { header:'#6b7280', body:'#e5e7eb', footer:'#6b7280', close:'#9ca3af', border:'#6b7280' };
   if (user.is_admin) return { header:'linear-gradient(#a44600, #8c3d00)', body:'#ff7910', footer:'linear-gradient(#a44600, #8c3d00)', close:'#ef6500', border:'#a4600e' };
+  if (user.user_id === 3) return { header:'linear-gradient(#ca8a04, #b45309)', body:'#fef9c3', footer:'linear-gradient(#ca8a04, #b45309)', close:'#fde047', border:'#ca8a04' }; // SystemBot Yellow
   
   let score = user.rating_points || 0;
   let gender = user.gender || 'male';
@@ -240,15 +242,37 @@ function getPmColorScheme(user) {
 async function getTreasury() { const { data } = await sb.from('admin_settings').select('*').eq('id', 1).single(); return data; }
 async function updateTreasury(updates) { await sb.from('admin_settings').update(updates).eq('id', 1); }
 
-// --- Broadcast Logic ---
+// --- Logs Helper ---
+async function addLog(text) {
+  await sb.from('transaction_logs').insert([{ user_id: currentUser.user_id, log_text: text }]);
+}
+
+// --- Realtime Subscriptions ---
+function subscribeToUserStatus() {
+  if (userStatusSubscription) sb.removeChannel(userStatusSubscription);
+  userStatusSubscription = sb.channel('user_status')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_users', filter: `user_id=eq.${currentUser.user_id}` }, payload => {
+      const updatedUser = payload.new;
+      const wasBanned = new Date(currentUser.banned_until) < new Date();
+      const isBannedNow = new Date(updatedUser.banned_until) > new Date();
+      
+      if (!wasBanned && isBannedNow) {
+        currentUser = updatedUser;
+        joinRoom(3);
+      } else if (wasBanned && !isBannedNow && currentRoom === 3) {
+        currentUser = updatedUser;
+        joinRoom(1);
+      }
+      currentUser = updatedUser;
+    })
+    .subscribe();
+}
+
 function subscribeToBroadcasts() {
   if (broadcastSubscription) sb.removeChannel(broadcastSubscription);
-  
-  // Fetch active broadcasts on load
   sb.from('broadcasts').select('*').gt('expires_at', new Date().toISOString()).then(({ data }) => {
     if (data && data.length > 0) showBroadcast(data[0]);
   });
-
   broadcastSubscription = sb.channel('broadcasts')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'broadcasts' }, payload => {
       showBroadcast(payload.new);
@@ -276,8 +300,7 @@ function showBroadcast(b) {
 async function joinRoom(id){
   closeModal();
   
-  // VIP Room Entry Fee Check
-  if (id === 2 && currentUser.user_id !== 1) {
+  if (id === 2 && currentUser.user_id !== 1 && currentUser.user_id !== 3) {
     const settings = await getTreasury();
     const fee = parseFloat(settings.vip_entry_fee);
     if (currentUser.currency < fee) return alert(`Entering VIP room costs ${fee} Ð. You don't have enough dots.`);
@@ -323,7 +346,7 @@ async function joinRoom(id){
 
 async function loadMessages(){
   const { data } = await sb.from('public_messages')
-    .select('*, sender:app_users(username, avatar_url, id_color, is_admin)')
+    .select('*, sender:app_users(username, avatar_url, id_color, is_admin, is_system)')
     .eq('room_id', currentRoom)
     .order('created_at', { ascending: true })
     .limit(50);
@@ -338,7 +361,7 @@ async function getUserData(userId) {
   const cached = userCache[userId];
   const now = Date.now();
   if (cached && cached._ts && (now - cached._ts < 15000)) return cached;
-  const { data } = await sb.from('app_users').select('user_id, username, avatar_url, id_color, is_admin, rating_points, gender').eq('user_id', userId).single();
+  const { data } = await sb.from('app_users').select('user_id, username, avatar_url, id_color, is_admin, is_system, rating_points, gender').eq('user_id', userId).single();
   userCache[userId] = data || { username: 'Unknown', avatar_url: '🙂', id_color: '#000' };
   userCache[userId]._ts = now;
   return userCache[userId];
@@ -358,14 +381,14 @@ async function appendMessage(m, isRealtime){
 
   let uData = m.sender || m.app_users;
   if (m.user_id === currentUser.user_id) {
-    uData = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, is_admin: currentUser.is_admin };
+    uData = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, is_admin: currentUser.is_admin, is_system: currentUser.is_system };
   } else if (!uData && m.user_id) {
     uData = await getUserData(m.user_id);
   }
   
   const userId = m.user_id;
   const username = uData ? uData.username : (m.username || 'Unknown');
-  const avatarHtml = uData && uData.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (uData ? (uData.avatar_url || '🙂') : '🙂');
+  const avatarHtml = uData && uData.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (uData && uData.is_system ? '⚙️' : (uData ? (uData.avatar_url || '🙂') : '🙂'));
   const nameColor = uData ? (uData.id_color || '#000') : '#000';
   
   div.className = 'msg';
@@ -384,10 +407,15 @@ el('btn-send').onclick = async () => {
     { room_id: currentRoom, user_id: currentUser.user_id, username: currentUser.username, content: t }
   ]);
   
-  // Add Rating Points (Double in VIP room)
   let pointsToAdd = currentRoom === 2 ? 2 : 1;
   const { data: updatedUser } = await sb.from('app_users').update({ rating_points: currentUser.rating_points + pointsToAdd }).eq('user_id', currentUser.user_id).select().single();
   currentUser = updatedUser;
+  
+  const { data: room } = await sb.from('rooms').select('rating_points').eq('room_id', currentRoom).single();
+  if (room) {
+    await sb.from('rooms').update({ rating_points: room.rating_points + 1 }).eq('room_id', currentRoom);
+    el('room-meta').textContent = 'ID: ' + currentRoom + ' · ' + (room.rating_points + 1) + ' pts';
+  }
 };
 el('msg-input').addEventListener('keydown', e => { if(e.key==='Enter') el('btn-send').click(); });
 
@@ -486,12 +514,12 @@ async function loadFriendsList() {
   
   if (friendsData && friendsData.length > 0) {
     const friendIds = friendsData.map(f => f.friend_id);
-    const { data: friendsInfo } = await sb.from('app_users').select('username, user_id, avatar_url, is_admin').in('user_id', friendIds);
+    const { data: friendsInfo } = await sb.from('app_users').select('username, user_id, avatar_url, is_admin, is_system').in('user_id', friendIds);
     if (friendsInfo && friendsInfo.length > 0) {
       friendsHtml = friendsInfo.map(f => `
         <div class="friend-row">
           <div class="friend-info">
-            <span class="friend-av">${f.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (f.avatar_url||'🙂')}</span>
+            <span class="friend-av">${f.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (f.is_system ? '⚙️' : (f.avatar_url||'🙂'))}</span>
             <span class="friend-name">${escapeHtml(f.username)}</span>
           </div>
           <div class="friend-actions">
@@ -514,17 +542,18 @@ async function loadPMHistory() {
   received.forEach(m => userIds.add(m.sender_id));
   userIds.delete(currentUser.user_id);
   userIds.delete(1); 
+  userIds.delete(3);
 
   let historyHtml = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No history yet.</p>';
   
   if (userIds.size > 0) {
     const idsArray = Array.from(userIds);
-    const { data: users } = await sb.from('app_users').select('user_id, username, avatar_url, is_admin').in('user_id', idsArray);
+    const { data: users } = await sb.from('app_users').select('user_id, username, avatar_url, is_admin, is_system').in('user_id', idsArray);
     if (users && users.length > 0) {
       historyHtml = users.map(u => `
         <div class="friend-row" style="cursor:pointer;" onclick="showChatHistory(${u.user_id}, '${escapeHtml(u.username)}')">
           <div class="friend-info">
-            <span class="friend-av">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (u.avatar_url||'🙂')}</span>
+            <span class="friend-av">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (u.is_system ? '⚙️' : (u.avatar_url||'🙂'))}</span>
             <span class="friend-name">${escapeHtml(u.username)}</span>
           </div>
           <span style="font-size:12px;color:var(--muted)">Tap to chat</span>
@@ -635,7 +664,7 @@ window.searchUsers = async () => {
   const q = el('usr-query').value.trim();
   if(!q) return;
   const num = parseInt(q);
-  let query = sb.from('app_users').select('user_id, username, avatar_url, is_admin, rating_points, id_color, is_verified').limit(10);
+  let query = sb.from('app_users').select('user_id, username, avatar_url, is_admin, is_system, rating_points, id_color, is_verified').limit(10);
   if (!isNaN(num)) query = query.eq('user_id', num);
   else query = query.ilike('username', `%${q}%`);
   
@@ -645,7 +674,7 @@ window.searchUsers = async () => {
   el('usr-results').innerHTML = data.map(u => `
     <div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;">
       <div class="friend-info">
-        <span class="friend-av">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (u.avatar_url||'🙂')}</span>
+        <span class="friend-av">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (u.is_system ? '⚙️' : (u.avatar_url||'🙂'))}</span>
         <span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span>
       </div>
       <span style="font-size:12px;color:var(--muted)">#${u.user_id}</span>
@@ -676,14 +705,14 @@ window.searchRooms = async () => {
 };
 
 window.loadLeaderboard = async () => {
-  const { data, error } = await sb.from('app_users').select('user_id, username, avatar_url, rating_points, is_admin, id_color').neq('user_id', 1).order('rating_points', { ascending: false }).limit(20);
+  const { data, error } = await sb.from('app_users').select('user_id, username, avatar_url, rating_points, is_admin, is_system, id_color').neq('user_id', 1).neq('user_id', 3).order('rating_points', { ascending: false }).limit(20);
   if (error || !data) return el('lb-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">Error loading leaderboard.</p>';
   
   el('lb-results').innerHTML = data.map((u, i) => `
     <div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;">
       <div class="friend-info" style="gap:5px;">
         <div class="lb-rank">${i + 1}</div>
-        <span class="friend-av" style="width:24px; height:24px; font-size:14px; margin-left:5px;">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (u.avatar_url||'🙂')}</span>
+        <span class="friend-av" style="width:24px; height:24px; font-size:14px; margin-left:5px;">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (u.is_system ? '⚙️' : (u.avatar_url||'🙂'))}</span>
         <span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span>
       </div>
       <span style="font-size:12px;color:var(--muted); font-weight:bold;">${u.rating_points} pts</span>
@@ -705,7 +734,7 @@ window.viewProfile = async (uid) => {
   const vpCard = `
     <div style="text-align:center; margin-bottom:20px;">
       <div style="width:64px; height:64px; border-radius:50%; background:var(--dot-soft); display:inline-flex; align-items:center; justify-content:center; font-size:32px; overflow:hidden; margin-bottom:10px; border: 2px solid var(--line);">
-        ${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (u.avatar_url || '🙂')}
+        ${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (u.is_system ? '⚙️' : (u.avatar_url || '🙂'))}
       </div>
       <div style="font-size:18px; font-weight:700; color:${u.id_color || '#000'};">${escapeHtml(u.username)}</div>
       <div style="font-size:12px; color:var(--muted); margin-top:4px;">#${u.user_id} · ${verifiedHtml}</div>
@@ -755,13 +784,13 @@ window.payFine = async () => {
   }).eq('user_id', currentUser.user_id).select().single();
   
   await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(currentUser.ban_fine) });
+  await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: currentUser.user_id, content: '✅ You have paid the fine and are now free.' }]);
   
   currentUser = updatedUser;
-  alert('Fine paid! You are free now.');
   joinRoom(1);
 };
 
-// --- Dots, Services & Games Logic ---
+// --- Dots, Services & Games Logic (Redesigned) ---
 el('tb-dots').onclick = async () => {
   const bal = parseFloat(currentUser.currency || 0).toFixed(2);
   const settings = await getTreasury();
@@ -769,147 +798,202 @@ el('tb-dots').onclick = async () => {
   openModal('Dots & Services', `
     <div style="text-align:center; margin-bottom:20px; background:var(--dot-soft); padding:15px; border-radius:12px;">
       <div style="font-size:32px; font-weight:800; color:var(--dot);">
-        ${currentUser.is_admin ? '∞' : bal} Ð 
+        ${bal} Ð 
         <span style="font-size:16px; cursor:pointer; display:inline-block; transform:translateY(-2px);" onclick="refreshBalance()">🔄</span>
       </div>
       <div style="font-size:12px; color:var(--muted); margin-top:5px;">Your Balance</div>
     </div>
-    <div class="list-row" onclick="openTransferDotsModal()">
-      <span style="font-size:20px;">💸</span>
-      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Send Dots</div><div style="font-size:11px; color:var(--muted);">Transfer to another user (10% tax)</div></div>
+    
+    <div class="pm-modal-tabs">
+      <div class="pm-modal-tab active" onclick="switchDotsTab('dots', this)">Dots</div>
+      <div class="pm-modal-tab" onclick="switchDotsTab('shop', this)">Shop</div>
+      <div class="pm-modal-tab" onclick="switchDotsTab('broadcast', this)">Broadcast</div>
     </div>
-    <div class="list-row" onclick="openBroadcastModal()">
-      <span style="font-size:20px;">📢</span>
-      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Broadcast Message</div><div style="font-size:11px; color:var(--muted);">Global message for 1 min (${settings.broadcast_fee} Ð)</div></div>
-    </div>
-    <div class="list-row" onclick="openShopModal()">
-      <span style="font-size:20px;">🛍️</span>
-      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Shop & Gifts</div><div style="font-size:11px; color:var(--muted);">Buy gifts with dots</div></div>
-    </div>
-    <div class="list-row" onclick="openAssetsModal()">
-      <span style="font-size:20px;">🎒</span>
-      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Assets</div><div style="font-size:11px; color:var(--muted);">View, sell or send your gifts</div></div>
-    </div>
-    <div class="list-row" onclick="openGamesModal()">
-      <span style="font-size:20px;">🎮</span>
-      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Games</div><div style="font-size:11px; color:var(--muted);">Play Roulette & RPS</div></div>
-    </div>
-    <div class="list-row" onclick="openRedeemModal()">
-      <span style="font-size:20px;">🎁</span>
-      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Redeem Code</div><div style="font-size:11px; color:var(--muted);">Use a gift code</div></div>
-    </div>
-  `);
-};
-
-window.openBroadcastModal = async () => {
-  const settings = await getTreasury();
-  openModal('📢 Broadcast Message', `
-    <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Send a global message to all rooms for 1 minute. Max 250 chars.</p>
-    <textarea id="bc-text" style="width:100%; height:100px; border:1px solid var(--line); border-radius:8px; padding:10px; font-family:inherit; font-size:13px; resize:none;" placeholder="Your message..." maxlength="250"></textarea>
-    <button class="btn" onclick="sendBroadcast()">Send (${settings.broadcast_fee} Ð)</button>
-  `);
-};
-
-window.sendBroadcast = async () => {
-  const text = el('bc-text').value.trim();
-  if (!text) return alert('Enter a message.');
-  const settings = await getTreasury();
-  const fee = parseFloat(settings.broadcast_fee);
-  
-  if (currentUser.currency < fee) return alert(`Broadcast costs ${fee} Ð. Not enough dots.`);
-  if (!confirm(`This will cost ${fee} Ð. Proceed?`)) return;
-  
-  const expiresAt = new Date(Date.now() + 60000).toISOString(); // 1 minute
-  
-  await sb.from('broadcasts').insert([{ content: text, sender_username: currentUser.username, expires_at: expiresAt }]);
-  
-  const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - fee }).eq('user_id', currentUser.user_id).select().single();
-  currentUser = updatedUser;
-  await updateTreasury({ fund_balance: parseFloat(settings.fund_balance) + fee });
-  
-  alert('Broadcast sent!');
-  closeModal();
-};
-
-window.openShopModal = async () => {
-  const { data: gifts, error } = await sb.from('gifts').select('*');
-  if (error) return alert('Error loading shop.');
-  
-  const giftsHtml = gifts.map(g => `
-    <div class="friend-row" style="cursor:default;">
-      <span class="friend-av" style="background:transparent; font-size:24px;">${g.image_url}</span>
-      <div style="flex:1; margin-left:5px;">
-        <div style="font-weight:600; font-size:14px;">${escapeHtml(g.name)}</div>
-        <div style="font-size:11px; color:var(--muted);">Price: ${g.price} Ð · Stock: ${g.stock}</div>
+    
+    <div id="dots-tab">
+      <div class="list-row" onclick="openTransferDotsModal()">
+        <span style="font-size:20px;">💸</span>
+        <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Send Dots</div><div style="font-size:11px; color:var(--muted);">Transfer to another user (10% tax)</div></div>
       </div>
-      <button class="btn-sm" style="opacity:${g.stock > 0 ? 1 : 0.5}; pointer-events:${g.stock > 0 ? 'auto' : 'none'};" onclick="buyGift('${g.id}')">Buy</button>
+      <div class="list-row" onclick="openRedeemModal()">
+        <span style="font-size:20px;">🎁</span>
+        <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Redeem Code</div><div style="font-size:11px; color:var(--muted);">Use a gift code</div></div>
+      </div>
+      ${new Date(currentUser.banned_until) > new Date() ? `
+      <div class="list-row" onclick="payFine()">
+        <span style="font-size:20px;">🔓</span>
+        <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Pay Ban Fine</div><div style="font-size:11px; color:var(--muted);">Pay ${currentUser.ban_fine} Ð to get unbanned</div></div>
+      </div>
+      ` : ''}
+      <div class="list-row" onclick="openGamesModal()">
+        <span style="font-size:20px;">🎮</span>
+        <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Games</div><div style="font-size:11px; color:var(--muted);">Play Roulette & RPS</div></div>
+      </div>
+      <div style="margin-top:15px; font-size:13px; font-weight:700;">Recent Transactions (24h)</div>
+      <div id="logs-view"><p style="color:var(--muted);text-align:center;font-size:12px;">Loading...</p></div>
     </div>
-  `).join('');
+    
+    <div id="shop-tab" class="hidden">
+      <div class="list-row" onclick="openShopModal('gifts')">
+        <span style="font-size:20px;">🛍️</span>
+        <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Gifts</div><div style="font-size:11px; color:var(--muted);">Buy gifts with dots</div></div>
+      </div>
+      <div class="list-row" onclick="openShopModal('roompts')">
+        <span style="font-size:20px;">⭐</span>
+        <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Room Points</div><div style="font-size:11px; color:var(--muted);">Boost current room score</div></div>
+      </div>
+      <div class="list-row" onclick="openShopModal('pmcolor')">
+        <span style="font-size:20px;">🎨</span>
+        <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">PM Color</div><div style="font-size:11px; color:var(--muted);">Buy custom PM color (24h)</div></div>
+      </div>
+      <div class="list-row" onclick="openAssetsModal()">
+        <span style="font-size:20px;">🎒</span>
+        <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Assets</div><div style="font-size:11px; color:var(--muted);">View, sell or send your gifts</div></div>
+      </div>
+      <div style="margin-top:15px; font-size:13px; font-weight:700;">Shop Logs (24h)</div>
+      <div id="shop-logs-view"><p style="color:var(--muted);text-align:center;font-size:12px;">Loading...</p></div>
+    </div>
+    
+    <div id="broadcast-tab" class="hidden">
+      <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Send a global message to all rooms for 1 minute. Max 250 chars. Messages are queued.</p>
+      <textarea id="bc-text" style="width:100%; height:100px; border:1px solid var(--line); border-radius:8px; padding:10px; font-family:inherit; font-size:13px; resize:none;" placeholder="Your message..." maxlength="250"></textarea>
+      <button class="btn" onclick="sendBroadcast()">Send (${settings.broadcast_fee} Ð)</button>
+    </div>
+  `);
   
-  openModal('🛍️ Shop', giftsHtml);
+  loadLogs();
+  loadShopLogs();
 };
 
-window.buyGift = async (giftId) => {
+window.switchDotsTab = (tab, btn) => {
+  document.querySelectorAll('.pm-modal-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  el('dots-tab').classList.toggle('hidden', tab !== 'dots');
+  el('shop-tab').classList.toggle('hidden', tab !== 'shop');
+  el('broadcast-tab').classList.toggle('hidden', tab !== 'broadcast');
+};
+
+window.loadLogs = async () => {
+  const yesterday = new Date(Date.now() - 86400000).toISOString();
+  const { data: logs } = await sb.from('transaction_logs').select('*').eq('user_id', currentUser.user_id).gt('created_at', yesterday).order('created_at', { ascending: false }).limit(5);
+  if(!logs || logs.length === 0) return el('logs-view').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:12px;">No recent transactions.</p>';
+  
+  el('logs-view').innerHTML = logs.map(l => `<div class="friend-row" style="cursor:default;"><span style="font-size:14px;">📜</span><div style="flex:1; margin-left:10px;"><div style="font-size:12px;">${escapeHtml(l.log_text)}</div><div style="font-size:10px; color:var(--muted);">${new Date(l.created_at).toLocaleTimeString()}</div></div></div>`).join('');
+};
+
+window.loadShopLogs = async () => {
+  const yesterday = new Date(Date.now() - 86400000).toISOString();
+  const { data: logs } = await sb.from('transaction_logs').select('*').eq('user_id', currentUser.user_id).ilike('log_text', 'Shop: %').gt('created_at', yesterday).order('created_at', { ascending: false }).limit(5);
+  if(!logs || logs.length === 0) return el('shop-logs-view').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:12px;">No recent shop logs.</p>';
+  
+  el('shop-logs-view').innerHTML = logs.map(l => `<div class="friend-row" style="cursor:default;"><span style="font-size:14px;">🛍️</span><div style="flex:1; margin-left:10px;"><div style="font-size:12px;">${escapeHtml(l.log_text)}</div><div style="font-size:10px; color:var(--muted);">${new Date(l.created_at).toLocaleTimeString()}</div></div></div>`).join('');
+};
+
+window.openShopModal = async (type) => {
+  if (type === 'gifts') {
+    const { data: gifts } = await sb.from('gifts').select('*');
+    const giftsHtml = gifts.map(g => `
+      <div class="friend-row" style="cursor:default;">
+        <span class="friend-av" style="background:transparent; font-size:24px;">${g.image_url}</span>
+        <div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${escapeHtml(g.name)}</div><div style="font-size:11px; color:var(--muted);">Price: ${g.price} Ð · Stock: ${g.stock}</div></div>
+        <button class="btn-sm" style="opacity:${g.stock > 0 ? 1 : 0.5}; pointer-events:${g.stock > 0 ? 'auto' : 'none'};" onclick="buyGift('${g.id}', '${escapeHtml(g.name)}', ${g.price})">Buy</button>
+      </div>
+    `).join('');
+    openModal('🛍️ Shop - Gifts', giftsHtml);
+  } else if (type === 'roompts') {
+    const packages = [{ pts: 10, price: 1.00 }, { pts: 50, price: 4.50 }, { pts: 100, price: 9.00 }, { pts: 500, price: 45.00 }, { pts: 1000, price: 85.00 }];
+    const ptsHtml = packages.map(p => `
+      <div class="friend-row" style="cursor:default;">
+        <span class="friend-av" style="background:transparent; font-size:24px;">⭐</span>
+        <div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${p.pts} Room Points</div><div style="font-size:11px; color:var(--muted);">Applies to current room</div></div>
+        <button class="btn-sm" onclick="buyRoomPoints(${p.pts}, ${p.price})">Buy (${p.price} Ð)</button>
+      </div>
+    `).join('');
+    openModal('🛍️ Shop - Room Points', ptsHtml);
+  } else if (type === 'pmcolor') {
+    const colors = [{ name: 'Black', hex: '#000000', price: 5.00 }, { name: 'Olive', hex: '#808000', price: 5.00 }, { name: 'Green', hex: '#008000', price: 5.00 }];
+    const colHtml = colors.map(c => `
+      <div class="friend-row" style="cursor:default;">
+        <span class="friend-av" style="background:transparent; font-size:24px; color:${c.hex};">●</span>
+        <div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${c.name}</div><div style="font-size:11px; color:var(--muted);">Lasts 24 hours</div></div>
+        <button class="btn-sm" onclick="buyPMColor('${c.hex}', '${c.name}', ${c.price})">Buy (${c.price} Ð)</button>
+      </div>
+    `).join('');
+    openModal('🛍️ Shop - PM Color', colHtml);
+  }
+};
+
+window.buyGift = async (giftId, giftName, giftPrice) => {
+  if (currentUser.currency < giftPrice) return alert('Not enough dots.');
   const { data: g } = await sb.from('gifts').select('*').eq('id', giftId).single();
-  if (!g) return alert('Gift not found.');
   if (g.stock <= 0) return alert('Out of stock.');
-  if (currentUser.currency < g.price) return alert('Not enough dots.');
   
   const { data: inv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', currentUser.user_id).eq('gift_id', giftId).maybeSingle();
-  
   const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - parseFloat(g.price) }).eq('user_id', currentUser.user_id).select().single();
   currentUser = updatedUser;
   
   await sb.from('gifts').update({ stock: g.stock - 1 }).eq('id', giftId);
+  if (inv) await sb.from('user_inventory').update({ quantity: inv.quantity + 1 }).eq('id', inv.id);
+  else await sb.from('user_inventory').insert([{ user_id: currentUser.user_id, gift_id: giftId, quantity: 1 }]);
   
-  if (inv) {
-    await sb.from('user_inventory').update({ quantity: inv.quantity + 1 }).eq('id', inv.id);
-  } else {
-    await sb.from('user_inventory').insert([{ user_id: currentUser.user_id, gift_id: giftId, quantity: 1 }]);
+  await addLog(`Shop: Bought ${giftName} for ${giftPrice} Ð`);
+  alert(`Bought ${g.name}!`);
+  openShopModal('gifts');
+};
+
+window.buyRoomPoints = async (pts, price) => {
+  if (currentUser.currency < price) return alert('Not enough dots.');
+  if (currentRoom === 3) return alert('Cannot add points to the banned room.');
+  
+  const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - price }).eq('user_id', currentUser.user_id).select().single();
+  currentUser = updatedUser;
+  
+  const { data: room } = await sb.from('rooms').select('rating_points').eq('room_id', currentRoom).single();
+  if (room) {
+    await sb.from('rooms').update({ rating_points: room.rating_points + pts }).eq('room_id', currentRoom);
+    el('room-meta').textContent = 'ID: ' + currentRoom + ' · ' + (room.rating_points + pts) + ' pts';
   }
   
-  alert(`Bought ${g.name}!`);
-  openShopModal();
+  await addLog(`Shop: Bought ${pts} Room Points for ${price} Ð`);
+  alert(`Successfully added ${pts} points to this room!`);
+  openShopModal('roompts');
+};
+
+window.buyPMColor = async (hex, name, price) => {
+  if (currentUser.currency < price) return alert('Not enough dots.');
+  const expiresAt = new Date(Date.now() + 86400000).toISOString();
+  
+  const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - price, pm_color: hex, pm_color_expires: expiresAt }).eq('user_id', currentUser.user_id).select().single();
+  currentUser = updatedUser;
+  
+  await addLog(`Shop: Bought ${name} PM Color for ${price} Ð`);
+  alert(`Successfully bought ${name} PM color for 24 hours!`);
 };
 
 window.openAssetsModal = async () => {
-  const { data: assets, error } = await sb.from('user_inventory').select('*, gifts(name, image_url, price)').eq('user_id', currentUser.user_id);
-  if (error || !assets || assets.length === 0) {
-    return openModal('🎒 Assets', '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No assets yet.</p>');
-  }
+  const { data: assets } = await sb.from('user_inventory').select('*, gifts(name, image_url, price)').eq('user_id', currentUser.user_id);
+  if (!assets || assets.length === 0) return openModal('🎒 Assets', '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No assets yet.</p>');
   
   const assetsHtml = assets.map(a => `
     <div class="friend-row" style="cursor:default;">
       <span class="friend-av" style="background:transparent; font-size:24px;">${a.gifts.image_url}</span>
-      <div style="flex:1; margin-left:5px;">
-        <div style="font-weight:600; font-size:14px;">${escapeHtml(a.gifts.name)} (x${a.quantity})</div>
-        <div style="font-size:11px; color:var(--muted);">Value: ${a.gifts.price} Ð</div>
-      </div>
-      <div style="display:flex; gap:5px;">
-        <button class="btn-sm" onclick="sellGift('${a.id}', '${a.gift_id}', ${a.quantity})">Sell</button>
-        <button class="btn-sm" style="background:var(--dot); color:#fff;" onclick="sendGiftPrompt('${a.gift_id}', '${escapeHtml(a.gifts.name)}')">Send</button>
-      </div>
+      <div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${escapeHtml(a.gifts.name)} (x${a.quantity})</div><div style="font-size:11px; color:var(--muted);">Value: ${a.gifts.price} Ð</div></div>
+      <div style="display:flex; gap:5px;"><button class="btn-sm" onclick="sellGift('${a.id}', '${a.gift_id}', ${a.quantity})">Sell</button><button class="btn-sm" style="background:var(--dot); color:#fff;" onclick="sendGiftPrompt('${a.gift_id}', '${escapeHtml(a.gifts.name)}')">Send</button></div>
     </div>
   `).join('');
-  
   openModal('🎒 Assets', assetsHtml);
 };
 
 window.sellGift = async (inventoryId, giftId, currentQty) => {
   const { data: g } = await sb.from('gifts').select('*').eq('id', giftId).single();
-  if (!g) return alert('Gift data not found.');
-  
   const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency + parseFloat(g.price) }).eq('user_id', currentUser.user_id).select().single();
   currentUser = updatedUser;
-  
   await sb.from('gifts').update({ stock: g.stock + 1 }).eq('id', giftId);
   
-  if (currentQty > 1) {
-    await sb.from('user_inventory').update({ quantity: currentQty - 1 }).eq('id', inventoryId);
-  } else {
-    await sb.from('user_inventory').delete().eq('id', inventoryId);
-  }
+  if (currentQty > 1) await sb.from('user_inventory').update({ quantity: currentQty - 1 }).eq('id', inventoryId);
+  else await sb.from('user_inventory').delete().eq('id', inventoryId);
   
+  await addLog(`Shop: Sold ${g.name} for ${g.price} Ð`);
   alert(`Sold ${g.name}! +${g.price} Ð.`);
   openAssetsModal();
 };
@@ -925,19 +1009,14 @@ window.sendGiftPrompt = async (giftId, giftName) => {
   const { data: senderInv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', currentUser.user_id).eq('gift_id', giftId).maybeSingle();
   if (!senderInv) return alert('You do not own this gift.');
   
-  if (senderInv.quantity > 1) {
-    await sb.from('user_inventory').update({ quantity: senderInv.quantity - 1 }).eq('id', senderInv.id);
-  } else {
-    await sb.from('user_inventory').delete().eq('id', senderInv.id);
-  }
+  if (senderInv.quantity > 1) await sb.from('user_inventory').update({ quantity: senderInv.quantity - 1 }).eq('id', senderInv.id);
+  else await sb.from('user_inventory').delete().eq('id', senderInv.id);
   
   const { data: recInv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', recipient.user_id).eq('gift_id', giftId).maybeSingle();
-  if (recInv) {
-    await sb.from('user_inventory').update({ quantity: recInv.quantity + 1 }).eq('id', recInv.id);
-  } else {
-    await sb.from('user_inventory').insert([{ user_id: recipient.user_id, gift_id: giftId, quantity: 1 }]);
-  }
+  if (recInv) await sb.from('user_inventory').update({ quantity: recInv.quantity + 1 }).eq('id', recInv.id);
+  else await sb.from('user_inventory').insert([{ user_id: recipient.user_id, gift_id: giftId, quantity: 1 }]);
   
+  await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: recipient.user_id, content: `🎁 You received a gift from ${currentUser.username}!` }]);
   alert(`Gift sent to ${recipient.username}!`);
   openAssetsModal();
 };
@@ -961,40 +1040,28 @@ window.redeemCode = async () => {
   await sb.from('redeem_codes').update({ uses: rc.uses + 1 }).eq('code', code);
   const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency + parseFloat(rc.reward_value) }).eq('user_id', currentUser.user_id).select().single();
   currentUser = updatedUser;
+  await addLog(`Redeemed code for ${rc.reward_value} Ð`);
   el('rd-res').innerHTML = `<span style="color:#16a34a">Success! +${rc.reward_value} Ð</span>`;
 };
 
 window.openGamesModal = () => {
   openModal('Games', `
-    <div class="list-row" onclick="openRouletteModal()">
-      <span style="font-size:20px;">🎰</span>
-      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Roulette</div><div style="font-size:11px; color:var(--muted);">Bet on Even/Odd, Dozens, or Exact Number</div></div>
-    </div>
-    <div class="list-row" onclick="openRPSModal()">
-      <span style="font-size:20px;">✊</span>
-      <div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Rock Paper Scissors</div><div style="font-size:11px; color:var(--muted);">Simple 2x payout game</div></div>
-    </div>
+    <div class="list-row" onclick="openRouletteModal()"><span style="font-size:20px;">🎰</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Roulette</div><div style="font-size:11px; color:var(--muted);">Bet on Even/Odd, Dozens, or Exact Number</div></div></div>
+    <div class="list-row" onclick="openRPSModal()"><span style="font-size:20px;">✊</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Rock Paper Scissors</div><div style="font-size:11px; color:var(--muted);">Simple 2x payout game</div></div></div>
   `);
 };
 
 window.openRouletteModal = () => {
   openModal('Roulette', `
     <label class="field">Bet Type</label>
-    <select id="rl-type" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);">
-      <option value="even">Even (2x)</option><option value="odd">Odd (2x)</option><option value="dozen1">1-12 (3x)</option><option value="dozen2">13-24 (3x)</option><option value="dozen3">25-36 (3x)</option><option value="number">Exact Number 0-36 (36x)</option>
-    </select>
-    <div id="rl-num-wrap" class="hidden" style="margin-top:10px;">
-      <label class="field">Number (0-36)</label>
-      <input type="number" id="rl-num" min="0" max="36" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);" />
-    </div>
+    <select id="rl-type" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);"><option value="even">Even (2x)</option><option value="odd">Odd (2x)</option><option value="dozen1">1-12 (3x)</option><option value="dozen2">13-24 (3x)</option><option value="dozen3">25-36 (3x)</option><option value="number">Exact Number 0-36 (36x)</option></select>
+    <div id="rl-num-wrap" class="hidden" style="margin-top:10px;"><label class="field">Number (0-36)</label><input type="number" id="rl-num" min="0" max="36" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);" /></div>
     <label class="field">Bet Amount (Ð)</label>
     <input type="number" id="rl-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);" />
     <button class="btn" onclick="playRoulette()">Spin 🎲</button>
     <div id="rl-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>
   `);
-  document.getElementById('rl-type').addEventListener('change', (e) => {
-    document.getElementById('rl-num-wrap').classList.toggle('hidden', e.target.value !== 'number');
-  });
+  document.getElementById('rl-type').addEventListener('change', (e) => document.getElementById('rl-num-wrap').classList.toggle('hidden', e.target.value !== 'number'));
 };
 
 window.playRoulette = async () => {
@@ -1005,8 +1072,7 @@ window.playRoulette = async () => {
   if(amt > currentUser.currency) return alert('Not enough dots.');
   if(type === 'number' && (isNaN(num) || num < 0 || num > 36)) return alert('Invalid number (0-36).');
 
-  const { data: updatedUser, error: e1 } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single();
-  if (e1) return alert('Error processing bet.');
+  const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single();
   currentUser = updatedUser;
   const treasury = await getTreasury();
 
@@ -1027,8 +1093,10 @@ window.playRoulette = async () => {
     currentUser = finalUser;
     await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - payout });
     resultText += ` +${payout.toFixed(2)} Ð`;
+    await addLog(`Roulette: Won ${payout.toFixed(2)} Ð`);
   } else {
     await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + amt });
+    await addLog(`Roulette: Lost ${amt} Ð`);
   }
   document.getElementById('rl-res').textContent = resultText;
   document.getElementById('rl-res').style.color = win ? '#16a34a' : '#ef4444';
@@ -1039,11 +1107,7 @@ window.openRPSModal = () => {
     <p style="font-size:13px; color:var(--muted); text-align:center; margin-bottom:15px;">Choose your weapon. Win 2x your bet.</p>
     <label class="field">Bet Amount (Ð)</label>
     <input type="number" id="rps-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); margin-bottom:15px;" />
-    <div style="display:flex; gap:10px;">
-      <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('rock')">✊</button>
-      <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button>
-      <button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button>
-    </div>
+    <div style="display:flex; gap:10px;"><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('rock')">✊</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button></div>
     <div id="rps-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>
   `);
 };
@@ -1053,8 +1117,7 @@ window.playRPS = async (choice) => {
   if(!amt || amt <= 0) return alert('Invalid bet amount.');
   if(amt > currentUser.currency) return alert('Not enough dots.');
 
-  const { data: updatedUser, error: e1 } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single();
-  if (e1) return alert('Error processing bet.');
+  const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single();
   currentUser = updatedUser;
   const treasury = await getTreasury();
 
@@ -1078,8 +1141,10 @@ window.playRPS = async (choice) => {
     currentUser = finalUser;
     await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - payout });
     resultText += `WIN! +${payout.toFixed(2)} Ð`;
+    await addLog(`RPS: Won ${payout.toFixed(2)} Ð`);
   } else {
     await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + amt });
+    await addLog(`RPS: Lost ${amt} Ð`);
     resultText += 'LOST!';
   }
   const resEl = document.getElementById('rps-res');
@@ -1109,12 +1174,14 @@ window.transferDots = async () => {
   const receiverGets = amt - tax;
   const treasury = await getTreasury();
 
-  const { data: updatedSender, error: e1 } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single();
-  if(e1) return alert('Error sending dots.');
+  const { data: updatedSender } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single();
   await sb.from('app_users').update({ currency: receiver.currency + receiverGets }).eq('user_id', toId);
   await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) + tax });
 
   currentUser = updatedSender;
+  await addLog(`Sent ${amt} Ð to ID #${toId}`);
+  await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: toId, content: `💸 You received ${receiverGets.toFixed(2)} Ð from ${currentUser.username}!` }]);
+  
   alert(`Success! Sent ${amt}Ð to ID #${toId}. They received ${receiverGets.toFixed(2)}Ð.`);
   closeModal();
   el('tb-dots').click(); 
@@ -1130,14 +1197,41 @@ window.sendDotsPrompt = (id) => {
 
 window.refreshBalance = async (e) => {
   if(e) e.stopPropagation();
-  const { data, error } = await sb.from('app_users').select('currency').eq('user_id', currentUser.user_id).single();
-  if(!error && data) {
+  const { data } = await sb.from('app_users').select('currency').eq('user_id', currentUser.user_id).single();
+  if(data) {
     currentUser.currency = data.currency;
     const modalTitle = el('modal-root').querySelector('h3');
-    if (modalTitle && modalTitle.textContent === 'Dots & Services') {
-      el('tb-dots').click(); 
-    }
+    if (modalTitle && modalTitle.textContent === 'Dots & Services') el('tb-dots').click(); 
   }
+};
+
+// --- Broadcast Logic ---
+window.sendBroadcast = async () => {
+  const text = el('bc-text').value.trim();
+  if (!text) return alert('Enter a message.');
+  const settings = await getTreasury();
+  const fee = parseFloat(settings.broadcast_fee);
+  
+  if (currentUser.currency < fee) return alert(`Broadcast costs ${fee} Ð. Not enough dots.`);
+  if (!confirm(`This will cost ${fee} Ð. Proceed?`)) return;
+  
+  // Queue logic: expires 1 min after the latest active broadcast
+  const { data: active } = await sb.from('broadcasts').select('expires_at').gt('expires_at', new Date().toISOString()).order('expires_at', { ascending: false }).limit(1);
+  let expiresAt = new Date(Date.now() + 60000).toISOString();
+  if (active && active.length > 0) {
+    expiresAt = new Date(new Date(active[0].expires_at).getTime() + 60000).toISOString();
+  }
+  
+  await sb.from('broadcasts').insert([{ content: text, sender_username: currentUser.username, expires_at: expiresAt }]);
+  
+  const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - fee }).eq('user_id', currentUser.user_id).select().single();
+  currentUser = updatedUser;
+  await updateTreasury({ fund_balance: parseFloat(settings.fund_balance) + fee });
+  await addLog(`Broadcast: Sent message for ${fee} Ð`);
+  
+  alert('Broadcast sent! It will appear shortly.');
+  closeModal();
+  el('tb-dots').click();
 };
 
 // --- Profile Logic ---
@@ -1162,10 +1256,7 @@ el('tb-profile').onclick = () => {
       <div class="p-row"><span class="p-label">Name color</span><div class="p-val">${coHtml}</div></div>
       <div class="p-row"><span class="p-label">Verify ID</span><div class="p-val">${verifyHtml}</div></div>
       <div class="p-row" style="border-bottom:none;"><span class="p-label">ID Number</span><div class="p-val"><span class="p-bubble">#${currentUser.user_id}</span></div></div>
-      <div class="p-btn-row">
-        <button class="p-btn p-btn-logout" onclick="location.reload()">Logout</button>
-        <button class="p-btn p-btn-save" onclick="saveProfile()">Save Changes</button>
-      </div>
+      <div class="p-btn-row"><button class="p-btn p-btn-logout" onclick="location.reload()">Logout</button><button class="p-btn p-btn-save" onclick="saveProfile()">Save Changes</button></div>
     </div>`);
   window._av = currentUser.avatar_url || '🙂'; 
   window._co = currentUser.id_color || '#000000'; 
@@ -1173,12 +1264,10 @@ el('tb-profile').onclick = () => {
 };
 
 window.requestVerification = async () => {
-  const { data, error } = await sb.from('app_users').update({ verification_requested: true }).eq('user_id', currentUser.user_id).select().single();
-  if(!error) {
-    currentUser = data;
-    alert('Request sent to Admin!');
-    el('tb-profile').click();
-  }
+  const { data } = await sb.from('app_users').update({ verification_requested: true }).eq('user_id', currentUser.user_id).select().single();
+  currentUser = data;
+  alert('Request sent to Admin!');
+  el('tb-profile').click();
 };
 
 window.selColor = (c, e) => {
@@ -1199,11 +1288,7 @@ window.saveProfile = async () => {
   const updates = { username: newUsername, gender: window._gender, city: el('p-city').value.trim(), id_color: window._co, avatar_url: finalAvatar };
   if(newPassword) updates.password = newPassword;
 
-  const { data, error } = await sb.from('app_users').update(updates).eq('user_id', currentUser.user_id).select().single();
-  if(error) {
-    if(error.message.includes('duplicate')) return alert('Username already exists.');
-    return alert('Error: ' + error.message);
-  }
+  const { data } = await sb.from('app_users').update(updates).eq('user_id', currentUser.user_id).select().single();
   currentUser = data;
   userCache[currentUser.user_id] = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, _ts: Date.now() };
   alert('Saved successfully!');
@@ -1321,10 +1406,8 @@ window.adminEconomyPrompt = async () => {
   if(vipFee === null) return;
   const bcFee = prompt('Broadcast Message Fee:', settings.broadcast_fee);
   if(bcFee === null) return;
-  
   await updateTreasury({ vip_entry_fee: parseFloat(vipFee), broadcast_fee: parseFloat(bcFee) });
-  alert('Economy settings updated!');
-  el('tb-admin').click();
+  alert('Economy settings updated!'); el('tb-admin').click();
 };
 
 window.adminManageGiftsPrompt = async () => {
@@ -1332,10 +1415,7 @@ window.adminManageGiftsPrompt = async () => {
   let html = gifts.map(g => `
     <div class="friend-row" style="cursor:default;">
       <span class="friend-av" style="background:transparent; font-size:24px;">${g.image_url}</span>
-      <div style="flex:1; margin-left:5px;">
-        <div style="font-weight:600; font-size:14px;">${escapeHtml(g.name)}</div>
-        <div style="font-size:11px; color:var(--muted);">Price: ${g.price} Ð | Stock: ${g.stock}</div>
-      </div>
+      <div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${escapeHtml(g.name)}</div><div style="font-size:11px; color:var(--muted);">Price: ${g.price} Ð | Stock: ${g.stock}</div></div>
       <button class="btn-sm" onclick="adminEditGiftPrompt('${g.id}', '${escapeHtml(g.name)}')">Edit</button>
     </div>
   `).join('');
@@ -1347,10 +1427,8 @@ window.adminEditGiftPrompt = async (id, name) => {
   if(newPrice === null) return;
   const newStock = prompt(`Enter new stock for ${name}:`);
   if(newStock === null) return;
-  
   await sb.from('gifts').update({ price: parseFloat(newPrice), stock: parseInt(newStock) }).eq('id', id);
-  alert('Gift updated!');
-  adminManageGiftsPrompt();
+  alert('Gift updated!'); adminManageGiftsPrompt();
 };
 
 window.adminMintPrompt = async () => { const amt = prompt('Amount to Mint:', '100'); const target = prompt('Mint to (tax/fund):', 'fund'); const treasury = await getTreasury(); if(target === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) + parseFloat(amt) }); else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(amt) }); alert('Minted!'); el('tb-admin').click(); };
@@ -1359,8 +1437,53 @@ window.adminCreateCodePrompt = async () => { const code = prompt('Code string:',
 window.adminTransferTreasuryPrompt = async () => { const amt = prompt('Amount to transfer:'); const src = prompt('From (fund/tax):', 'fund'); const treasury = await getTreasury(); const { data: admin } = await sb.from('app_users').select('currency').eq('user_id', 1).single(); await sb.from('app_users').update({ currency: parseFloat(admin.currency) + parseFloat(amt) }).eq('user_id', 1); if(src === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) - parseFloat(amt) }); else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - parseFloat(amt) }); alert('Transferred to Admin!'); el('tb-admin').click(); };
 window.adminBurnPrompt = async () => { const amt = prompt('Amount to burn:'); const src = prompt('From (fund/tax):', 'fund'); const treasury = await getTreasury(); if(src === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) - parseFloat(amt) }); else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - parseFloat(amt) }); alert('Burned!'); el('tb-admin').click(); };
 window.adminVerifyPrompt = async () => { const id = prompt('Enter User ID to verify:'); const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single(); if(!u) return alert('User not found.'); if(!u.verification_requested) return alert('This user has not requested verification.'); await sb.from('app_users').update({ is_verified: true, verification_requested: false }).eq('user_id', id); alert('User verified successfully!'); el('tb-admin').click(); };
-window.adminBanPrompt = async () => { const id = prompt('Enter User ID to ban:'); const mins = prompt('Ban duration (minutes):', '60'); const fine = prompt('Fine amount (Dots):', '10'); const { data: u } = await sb.from('app_users').select('currency').eq('user_id', id).single(); if(!u) return alert('User not found.'); const banUntil = new Date(Date.now() + parseInt(mins) * 60000).toISOString(); let newCurrency = parseFloat(u.currency); if(parseFloat(fine) > 0) { newCurrency -= parseFloat(fine); if(newCurrency < 0) newCurrency = 0; const treasury = await getTreasury(); await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(fine) }); } await sb.from('app_users').update({ banned_until: banUntil, current_room_id: 3, currency: newCurrency, ban_fine: parseFloat(fine) }).eq('user_id', id); alert('User banned and moved to Room 3!'); el('tb-admin').click(); };
-window.adminUnbanPrompt = async () => { const id = prompt('Enter User ID to unban:'); await sb.from('app_users').update({ banned_until: new Date().toISOString(), current_room_id: 1, ban_fine: 0 }).eq('user_id', id); alert('User unbanned!'); el('tb-admin').click(); };
+
+window.adminBanPrompt = async () => {
+  const id = prompt('Enter User ID to ban:');
+  if(!id) return;
+  const mins = prompt('Ban duration (minutes):', '60');
+  if(!mins) return;
+  const fine = prompt('Fine amount (Dots):', '10');
+  if(fine === null) return;
+
+  const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single();
+  if(!u) return alert('User not found.');
+  
+  const banUntil = new Date(Date.now() + parseInt(mins) * 60000).toISOString();
+  let newCurrency = parseFloat(u.currency);
+  
+  if(parseFloat(fine) > 0) {
+    newCurrency -= parseFloat(fine);
+    if(newCurrency < 0) newCurrency = 0;
+    const treasury = await getTreasury();
+    await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(fine) });
+  }
+  
+  await sb.from('app_users').update({ banned_until: banUntil, current_room_id: 3, currency: newCurrency, ban_fine: parseFloat(fine) }).eq('user_id', id);
+  
+  await sb.from('public_messages').insert([{ room_id: u.current_room_id || 1, user_id: 3, username: 'SystemBot', content: `🔨 User ${u.username} has been banned.` }]);
+  await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: id, content: `🚨 You have been banned for ${mins} minutes. Fine: ${fine} Ð.` }]);
+  
+  alert('User banned and moved to Room 3!');
+  el('tb-admin').click();
+};
+
+window.adminUnbanPrompt = async () => {
+  const id = prompt('Enter User ID to unban:');
+  if(!id) return;
+  
+  const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single();
+  if(!u) return alert('User not found.');
+  
+  await sb.from('app_users').update({ banned_until: new Date().toISOString(), current_room_id: 1, ban_fine: 0 }).eq('user_id', id);
+  
+  await sb.from('public_messages').insert([{ room_id: 1, user_id: 3, username: 'SystemBot', content: `✅ User ${u.username} has been unbanned.` }]);
+  await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: id, content: '✅ You have been unbanned! Welcome back.' }]);
+  
+  alert('User unbanned!');
+  el('tb-admin').click();
+};
+
 window.adminDotsPrompt = async () => { const id = prompt('Enter User ID:'); const amt = prompt('Amount (use negative to remove):', '10'); const { data: u } = await sb.from('app_users').select('currency').eq('user_id', id).single(); if(!u) return alert('User not found.'); let newBal = parseFloat(u.currency) + parseFloat(amt); if(newBal < 0) newBal = 0; await sb.from('app_users').update({ currency: newBal }).eq('user_id', id); alert('Dots updated!'); el('tb-admin').click(); };
 window.adminRatingPrompt = async () => { const id = prompt('Enter User ID:'); const amt = prompt('Amount (use negative to remove):', '100'); const { data: u } = await sb.from('app_users').select('rating_points').eq('user_id', id).single(); if(!u) return alert('User not found.'); let newScore = parseInt(u.rating_points) + parseInt(amt); if(newScore < 0) newScore = 0; await sb.from('app_users').update({ rating_points: newScore }).eq('user_id', id); alert('Rating updated!'); el('tb-admin').click(); };
 window.adminClearRoomPrompt = async () => { const id = prompt('Enter Room ID to clear messages:'); if(!confirm('Are you sure? This will delete ALL messages in this room.')) return; await sb.from('public_messages').delete().eq('room_id', id); alert('Messages cleared!'); if(currentRoom == id) loadMessages(); };
