@@ -172,7 +172,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const ADMIN_GIF = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/Dot.gif";
 
-let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, userStatusSubscription = null;
+let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, banCheckInterval = null;
 const userCache = {}; 
 const AVATARS = ["🦊","🦄","🐰","🐭","🍄","☢️","🌼","♥️","♠️","♣️","♦️","👺","👻","👽","⛄","💀","👤","🧑🏻‍🚀","🧒🏻","👩🏻","🍁","🍀","🌲","⚡","🐥","🛡️","♂️","♀️"];
 const COLORS = ["#000000", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280", "#f5780e"];
@@ -217,7 +217,7 @@ async function startApp(){
   joinRoom(1);
   subscribeToPMs();
   subscribeToBroadcasts();
-  subscribeToUserStatus();
+  startBanCheck();
 }
 
 // --- Rating & Color Logic ---
@@ -225,6 +225,17 @@ function getPmColorScheme(user) {
   if (!user) return { header:'#6b7280', body:'#e5e7eb', footer:'#6b7280', close:'#9ca3af', border:'#6b7280' };
   if (user.is_admin) return { header:'linear-gradient(#a44600, #8c3d00)', body:'#ff7910', footer:'linear-gradient(#a44600, #8c3d00)', close:'#ef6500', border:'#a4600e' };
   if (user.user_id === 3) return { header:'linear-gradient(#ca8a04, #b45309)', body:'#fef9c3', footer:'linear-gradient(#ca8a04, #b45309)', close:'#fde047', border:'#ca8a04' }; // SystemBot Yellow
+  
+  // Check for purchased PM color (overrides rating)
+  if (user.pm_color && user.pm_color_expires && new Date(user.pm_color_expires) > new Date()) {
+    return {
+      header: user.pm_color,
+      body: '#f0f0f0', // Light background for text readability
+      footer: user.pm_color,
+      close: '#e0e0e0',
+      border: user.pm_color
+    };
+  }
   
   let score = user.rating_points || 0;
   let gender = user.gender || 'male';
@@ -247,27 +258,36 @@ async function addLog(text) {
   await sb.from('transaction_logs').insert([{ user_id: currentUser.user_id, log_text: text }]);
 }
 
-// --- Realtime Subscriptions ---
-function subscribeToUserStatus() {
-  if (userStatusSubscription) sb.removeChannel(userStatusSubscription);
-  userStatusSubscription = sb.channel('user_status')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_users', filter: `user_id=eq.${currentUser.user_id}` }, payload => {
-      const updatedUser = payload.new;
-      const wasBanned = new Date(currentUser.banned_until) < new Date();
-      const isBannedNow = new Date(updatedUser.banned_until) > new Date();
-      
-      if (!wasBanned && isBannedNow) {
-        currentUser = updatedUser;
-        joinRoom(3);
-      } else if (wasBanned && !isBannedNow && currentRoom === 3) {
-        currentUser = updatedUser;
-        joinRoom(1);
-      }
-      currentUser = updatedUser;
-    })
-    .subscribe();
+// --- Ban Check Polling (5 seconds) ---
+function startBanCheck() {
+  if (banCheckInterval) clearInterval(banCheckInterval);
+  checkBanStatus();
+  banCheckInterval = setInterval(checkBanStatus, 5000); 
 }
 
+async function checkBanStatus() {
+  if (!currentUser) return;
+  const { data: u } = await sb.from('app_users').select('banned_until, ban_fine, current_room_id').eq('user_id', currentUser.user_id).single();
+  if (!u) return;
+  
+  const wasBanned = new Date(currentUser.banned_until) > new Date();
+  const isBannedNow = new Date(u.banned_until) > new Date();
+  
+  if (!wasBanned && isBannedNow) {
+    currentUser.banned_until = u.banned_until;
+    currentUser.ban_fine = u.ban_fine;
+    alert('You have been banned!');
+    joinRoom(3);
+  } else if (wasBanned && !isBannedNow && currentRoom === 3) {
+    currentUser.banned_until = u.banned_until;
+    alert('You have been unbanned!');
+    joinRoom(1);
+  } else {
+    currentUser.ban_fine = u.ban_fine;
+  }
+}
+
+// --- Broadcast Logic ---
 function subscribeToBroadcasts() {
   if (broadcastSubscription) sb.removeChannel(broadcastSubscription);
   sb.from('broadcasts').select('*').gt('expires_at', new Date().toISOString()).then(({ data }) => {
@@ -361,7 +381,7 @@ async function getUserData(userId) {
   const cached = userCache[userId];
   const now = Date.now();
   if (cached && cached._ts && (now - cached._ts < 15000)) return cached;
-  const { data } = await sb.from('app_users').select('user_id, username, avatar_url, id_color, is_admin, is_system, rating_points, gender').eq('user_id', userId).single();
+  const { data } = await sb.from('app_users').select('user_id, username, avatar_url, id_color, is_admin, is_system, rating_points, gender, pm_color, pm_color_expires').eq('user_id', userId).single();
   userCache[userId] = data || { username: 'Unknown', avatar_url: '🙂', id_color: '#000' };
   userCache[userId]._ts = now;
   return userCache[userId];
@@ -1187,12 +1207,10 @@ window.transferDots = async () => {
   el('tb-dots').click(); 
 };
 
+// FIX: Directly open the transfer modal without opening the main Dots menu
 window.sendDotsPrompt = (id) => { 
-  el('tb-dots').click(); 
-  setTimeout(() => { 
-    openTransferDotsModal();
-    el('td-to').value = id; 
-  }, 200); 
+  openTransferDotsModal();
+  el('td-to').value = id; 
 };
 
 window.refreshBalance = async (e) => {
@@ -1215,7 +1233,6 @@ window.sendBroadcast = async () => {
   if (currentUser.currency < fee) return alert(`Broadcast costs ${fee} Ð. Not enough dots.`);
   if (!confirm(`This will cost ${fee} Ð. Proceed?`)) return;
   
-  // Queue logic: expires 1 min after the latest active broadcast
   const { data: active } = await sb.from('broadcasts').select('expires_at').gt('expires_at', new Date().toISOString()).order('expires_at', { ascending: false }).limit(1);
   let expiresAt = new Date(Date.now() + 60000).toISOString();
   if (active && active.length > 0) {
