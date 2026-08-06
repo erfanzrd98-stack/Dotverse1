@@ -85,7 +85,7 @@
   .pm-history-msg{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;word-break:break-word;color:#000;}
 
   /* Tabs & Lists */
-  .pm-modal-tabs{display:flex;gap:4px;margin-bottom:20px;background:#f4f5f7;border-radius:10px;padding:3px;} .pm-modal-tab{flex:1;text-align:center;padding:8px 0;font-size:13.5px;font-weight:600;border-radius:8px;cursor:pointer;color:var(--muted);} .pm-modal-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  .pm-modal-tabs{display:flex;gap:4px;margin-bottom:20px;background:#f4f5f7;border-radius:10px;padding:3px;} .pm-modal-tab{flex:1;text-align:center;padding:8px 0;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;color:var(--muted);} .pm-modal-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1);}
   .friend-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f4f5f7;}
   .friend-info{display:flex;align-items:center;gap:10px;} .friend-av{font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--dot-soft);border-radius:50%;overflow:hidden;}
   .friend-name{font-weight:600;font-size:14px;} .friend-actions{display:flex;gap:4px;}
@@ -170,19 +170,15 @@ async function startApp(){
   joinRoom(1); subscribeToPMs(); subscribeToBroadcasts(); startBanCheck();
 }
 
-// --- Classic PM Color Scheme (Admin & SysBot first!) ---
 function getPmColorScheme(user) {
   if (!user) return { card_border:'#6b7280', header_bg:'linear-gradient(#6b7280, #4b5563)', header_color:'#fff', close_bg:'#9ca3af', close_color:'#000', body_bg:'#e5e7eb', body_color:'#000', footer_bg:'linear-gradient(#6b7280, #4b5563)', footer_color:'#000', footer_border:'#6b7280' };
-  
   if (user.is_admin) return { card_border:'#6b3200', header_bg:'linear-gradient(#a44600, #8c3d00)', header_color:'#fff', close_bg:'#ef6500', close_color:'#000', body_bg:'#ff7910', body_color:'#000', footer_bg:'linear-gradient(#a44600, #8c3d00)', footer_color:'#000', footer_border:'#a4600e' };
   if (user.user_id === 3 || user.is_super_mod) return { card_border:'#ca8a04', header_bg:'linear-gradient(#ca8a04, #facc15)', header_color:'#3a2f02', close_bg:'#fde047', close_color:'#3a2f02', body_bg:'#fde047', body_color:'#3a2f02', footer_bg:'linear-gradient(#ca8a04, #facc15)', footer_color:'#3a2f02', footer_border:'#ca8a04' };
-  
   if (user.pm_color && user.pm_color_expires && new Date(user.pm_color_expires) > new Date()) {
     if (user.pm_color === 'black') return { card_border:'#000', header_bg:'linear-gradient(#3a3a3a, #000000)', header_color:'#fff', close_bg:'#5a5a5a', close_color:'#fff', body_bg:'#1a1a1a', body_color:'#fff', footer_bg:'linear-gradient(#3a3a3a, #000000)', footer_color:'#fff', footer_border:'#000' };
     if (user.pm_color === 'jade') return { card_border:'#0F3D2E', header_bg:'linear-gradient(#0F3D2E, #6ED1AC)', header_color:'#fff', close_bg:'#A8ECD0', close_color:'#0f3d2e', body_bg:'#A8ECD0', body_color:'#0f3d2e', footer_bg:'linear-gradient(#0F3D2E, #6ED1AC)', footer_color:'#fff', footer_border:'#0F3D2E' };
     if (user.pm_color === 'olive') return { card_border:'#3A3B14', header_bg:'linear-gradient(#3A3B14, #B0B25E)', header_color:'#fff', close_bg:'#D4D69C', close_color:'#2b2c10', body_bg:'#D4D69C', body_color:'#2b2c10', footer_bg:'linear-gradient(#3A3B14, #B0B25E)', footer_color:'#fff', footer_border:'#3A3B14' };
   }
-
   let score = user.rating_points || 0; let gender = user.gender || 'male';
   if (score <= 100) return gender === 'female' ? { card_border:'#6B1A38', header_bg:'linear-gradient(#6B1A38, #E38FAE)', header_color:'#4a0f22', close_bg:'#FBD3E0', close_color:'#4a0f22', body_bg:'#FBD3E0', body_color:'#4a0f22', footer_bg:'linear-gradient(#6B1A38, #E38FAE)', footer_color:'#4a0f22', footer_border:'#6B1A38' } : { card_border:'#1B3A66', header_bg:'linear-gradient(#1B3A66, #6FA3E0)', header_color:'#12233d', close_bg:'#C9E0FB', close_color:'#12233d', body_bg:'#C9E0FB', body_color:'#12233d', footer_bg:'linear-gradient(#1B3A66, #6FA3E0)', footer_color:'#12233d', footer_border:'#1B3A66' };
   if (score <= 200) return gender === 'female' ? { card_border:'#4A0026', header_bg:'linear-gradient(#4A0026, #A80058)', header_color:'#fff', close_bg:'#B8106A', close_color:'#fff', body_bg:'#B8106A', body_color:'#fff', footer_bg:'linear-gradient(#4A0026, #A80058)', footer_color:'#fff', footer_border:'#4A0026' } : { card_border:'#081428', header_bg:'linear-gradient(#081428, #173B72)', header_color:'#fff', close_bg:'#1B4FA0', close_color:'#fff', body_bg:'#1B4FA0', body_color:'#fff', footer_bg:'linear-gradient(#081428, #173B72)', footer_color:'#fff', footer_border:'#081428' };
@@ -458,15 +454,24 @@ window.addModerator = async () => { const id = parseInt(el('mod-id-input').value
 window.removeModerator = async (uid) => { if (!confirm('Remove this moderator?')) return; await sb.from('room_moderators').delete().eq('room_id', currentRoom).eq('user_id', uid); alert('Moderator removed!'); el('tb-roominfo').click(); };
 window.transferOwnership = async () => { const id = parseInt(el('owner-id-input').value); if (!id) return alert('Enter a valid ID.'); if (id === currentUser.user_id) return alert('You are already the owner.'); const { data: target } = await sb.from('app_users').select('user_id').eq('user_id', id).single(); if (!target) return alert('User not found.'); const { error } = await sb.from('rooms').update({ owner_id: id }).eq('room_id', currentRoom); if (error) return alert('Error transferring ownership.'); alert('Ownership transferred!'); el('tb-roominfo').click(); };
 
-// --- Admin Panel Logic (Redesigned) ---
+// --- Admin Panel Logic (Fixed & Redesigned) ---
 el('tb-admin').onclick = async () => {
   if (!currentUser.is_admin && !currentUser.is_super_mod) return;
   
-  let tabsHtml = `<div class="pm-modal-tabs">`;
+  const treasury = await getTreasury();
+  const taxBal = treasury ? parseFloat(treasury.tax_balance).toFixed(2) : '0.00';
+  const fundBal = treasury ? parseFloat(treasury.fund_balance).toFixed(2) : '0.00';
+  
+  let tabsHtml = `<div class="pm-modal-tabs" style="font-size:11px;">`;
   if (currentUser.is_super_mod && !currentUser.is_admin) {
-    tabsHtml += `<div class="pm-modal-tab active" onclick="switchAdminTab('sm_ban', this)">Ban / Unban</div>`;
+    tabsHtml += `<div class="pm-modal-tab active" onclick="switchAdminTab('sm_ban', this)">🔨 Ban</div>`;
   } else {
-    tabsHtml += `<div class="pm-modal-tab active" onclick="switchAdminTab('requests', this)">Requests</div><div class="pm-modal-tab" onclick="switchAdminTab('users', this)">Users</div><div class="pm-modal-tab" onclick="switchAdminTab('rooms', this)">Rooms</div><div class="pm-modal-tab" onclick="switchAdminTab('economy', this)">Economy</div><div class="pm-modal-tab" onclick="switchAdminTab('super_mods', this)">Super Mods</div>`;
+    tabsHtml += `
+      <div class="pm-modal-tab active" onclick="switchAdminTab('requests', this)">🔔 Requests</div>
+      <div class="pm-modal-tab" onclick="switchAdminTab('users', this)">👤 Users</div>
+      <div class="pm-modal-tab" onclick="switchAdminTab('rooms', this)">🏠 Rooms</div>
+      <div class="pm-modal-tab" onclick="switchAdminTab('economy', this)">💰 Economy</div>
+      <div class="pm-modal-tab" onclick="switchAdminTab('super_mods', this)">🛡️ Super Mods</div>`;
   }
   tabsHtml += `</div>`;
   
@@ -474,17 +479,12 @@ el('tb-admin').onclick = async () => {
   if (currentUser.is_super_mod && !currentUser.is_admin) {
     contentHtml += `<div id="admin-sm_ban"><div class="admin-bubble"><div class="admin-bubble-title">🔨 Ban User</div><div class="admin-bubble-row"><input type="number" id="sm-ban-id" placeholder="User ID" style="flex:1;"><input type="number" id="sm-ban-mins" placeholder="Mins" style="width:60px;"><input type="number" id="sm-ban-fine" placeholder="Fine Ð" style="width:70px;"><button onclick="adminBanAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔓 Unban User</div><div class="admin-bubble-row"><input type="number" id="sm-unban-id" placeholder="User ID" style="flex:1;"><button class="success" onclick="adminUnbanAction()">OK</button></div></div></div>`;
   } else {
-    const treasury = await getTreasury();
     contentHtml += `<div id="admin-requests"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading requests...</p></div>`;
     contentHtml += `<div id="admin-users" class="hidden"><div class="admin-bubble"><div class="admin-bubble-title">🔨 Ban User</div><div class="admin-bubble-row"><input type="number" id="ban-id" placeholder="User ID" style="flex:1;"><input type="number" id="ban-mins" placeholder="Mins" style="width:60px;"><input type="number" id="ban-fine" placeholder="Fine Ð" style="width:70px;"><button onclick="adminBanAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔓 Unban User</div><div class="admin-bubble-row"><input type="number" id="unban-id" placeholder="User ID" style="flex:1;"><button class="success" onclick="adminUnbanAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">⭐ Add Rating</div><div class="admin-bubble-row"><input type="number" id="addrate-id" placeholder="User ID" style="flex:1;"><input type="number" id="addrate-amt" placeholder="Points" style="width:80px;"><button class="success" onclick="adminAddRateAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔻 Cut Rating</div><div class="admin-bubble-row"><input type="number" id="cutrate-id" placeholder="User ID" style="flex:1;"><input type="number" id="cutrate-amt" placeholder="Points" style="width:80px;"><button class="danger" onclick="adminCutRateAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔑 Reset Password</div><div class="admin-bubble-row"><input type="number" id="reset-id" placeholder="User ID" style="flex:1;"><button onclick="adminResetPassAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🪙 Adjust Dots</div><div class="admin-bubble-row"><input type="number" id="dots-id" placeholder="User ID" style="flex:1;"><input type="number" id="dots-amt" placeholder="+/- Ð" style="width:80px;"><button onclick="adminAdjustDotsAction()">OK</button></div></div></div>`;
     contentHtml += `<div id="admin-rooms" class="hidden"><div class="admin-bubble"><div class="admin-bubble-title">🧹 Clear Room Messages</div><div class="admin-bubble-row"><input type="number" id="clear-id" placeholder="Room ID" style="flex:1;"><button class="danger" onclick="adminClearRoomAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🗑️ Delete Room</div><div class="admin-bubble-row"><input type="number" id="del-id" placeholder="Room ID" style="flex:1;"><button class="danger" onclick="adminDeleteRoomAction()">OK</button></div></div></div>`;
     contentHtml += `<div id="admin-economy" class="hidden"><div class="admin-bubble"><div class="admin-bubble-title">⚙️ Economy Settings</div><div class="admin-bubble-row"><input type="number" id="vip-fee" placeholder="VIP Fee" value="${treasury.vip_entry_fee}" style="flex:1;"><input type="number" id="bc-fee" placeholder="BC Fee" value="${treasury.broadcast_fee}" style="flex:1;"><button onclick="adminEconomyAction()">Save</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🖨️ Mint Dots</div><div class="admin-bubble-row"><input type="number" id="mint-amt" placeholder="Amount" style="flex:1;"><select id="mint-target" style="width:80px;"><option value="fund">Fund</option><option value="tax">Tax</option></select><button onclick="adminMintAction()">Mint</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔥 Burn Tokens</div><div class="admin-bubble-row"><input type="number" id="burn-amt" placeholder="Amount" style="flex:1;"><select id="burn-target" style="width:80px;"><option value="fund">Fund</option><option value="tax">Tax</option></select><button class="danger" onclick="adminBurnAction()">Burn</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🎟️ Create Redeem Code</div><div class="admin-bubble-row"><input type="text" id="rc-code" placeholder="Code" style="flex:1;"><input type="number" id="rc-val" placeholder="Value Ð" style="width:70px;"><input type="number" id="rc-uses" placeholder="Uses" style="width:60px;"><button onclick="adminCreateCodeAction()">Create</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🛍️ Manage Gifts</div><div id="admin-gifts-list"><p style="color:var(--muted);font-size:12px;">Loading gifts...</p></div></div></div>`;
     contentHtml += `<div id="admin-super_mods" class="hidden"><div class="admin-bubble"><div class="admin-bubble-title">➕ Add Super Moderator</div><div class="admin-bubble-row"><input type="number" id="sm-id" placeholder="User ID" style="flex:1;"><button class="success" onclick="adminAddSMAction()">Add</button></div></div><div id="sm-list"><p style="color:var(--muted);font-size:12px;">Loading Super Mods...</p></div></div>`;
   }
-
-  const treasuryBal = currentUser.is_admin ? await getTreasury() : null;
-  const taxBal = treasuryBal ? parseFloat(treasuryBal.tax_balance).toFixed(2) : '0.00';
-  const fundBal = treasuryBal ? parseFloat(treasuryBal.fund_balance).toFixed(2) : '0.00';
 
   openModal('🛡️ Admin Panel', `<div style="background:#f4f5f7; padding:10px; border-radius:8px; margin-bottom:15px; font-size:13px;"><div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Tax Balance:</span><b>${taxBal} Ð</b></div><div style="display:flex; justify-content:space-between;"><span>Fund Balance:</span><b>${fundBal} Ð</b></div></div>${tabsHtml}${contentHtml}`);
   
