@@ -264,12 +264,12 @@ async function appendMessage(m, isRealtime){
   div.innerHTML = `<span class="avatar-emoji" onclick="showCtx(event,'${escapeHtml(username)}', '${userId}')">${avatarHtml}</span><div class="msg-body"><span class="msg-name" style="color:${nameColor}" onclick="showCtx(event,'${escapeHtml(username)}', '${userId}')">${escapeHtml(username)}</span><span class="msg-text">${escapeHtml(m.content)}</span></div>`;
   w.appendChild(div); if (isRealtime) w.scrollTop = w.scrollHeight;
 }
+
+// CHANGED: Removed manual rating update for public messages, DB trigger handles it now.
 el('btn-send').onclick = async () => {
   if (new Date(currentUser.banned_until) > new Date()) return alert('You are banned and cannot send messages.');
   const t = el('msg-input').value.trim(); if (!t) return; el('msg-input').value = '';
   await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: currentUser.user_id, username: currentUser.username, content: t }]);
-  let pointsToAdd = currentRoom === 2 ? 2 : 1;
-  const { data: updatedUser } = await sb.from('app_users').update({ rating_points: currentUser.rating_points + pointsToAdd }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser;
   const { data: room } = await sb.from('rooms').select('rating_points').eq('room_id', currentRoom).single();
   if (room) { await sb.from('rooms').update({ rating_points: room.rating_points + 1 }).eq('room_id', currentRoom); el('room-meta').textContent = 'ID: ' + currentRoom + ' · ' + (room.rating_points + 1) + ' pts'; }
 };
@@ -297,6 +297,7 @@ function showReplyBox(popupId, sender) {
   document.getElementById(`reply-${popupId}`).classList.remove('hidden');
   const inp = document.getElementById(`input-${popupId}`); inp.focus(); inp.addEventListener('keydown', e => { if(e.key==='Enter') sendReply(sender, popupId); });
 }
+// CHANGED: Removed manual rating update for PM, DB trigger handles it now.
 async function sendReply(sender, popupId) {
   const inp = document.getElementById(`input-${popupId}`); const t = inp.value.trim(); if(!t) return;
   const { data: receiver } = await sb.from('app_users').select('user_id').eq('username', sender).single();
@@ -344,6 +345,7 @@ window.showChatHistory = async (otherUserId, otherUsername) => {
   openModal(`Chat with ${escapeHtml(otherUsername)}`, historyHtml);
   const view = document.querySelector('.pm-history-view'); if(view) view.scrollTop = view.scrollHeight;
 };
+// CHANGED: Removed manual rating update for PM history, DB trigger handles it now.
 window.sendPMFromHistory = async (otherUserId, otherUsername) => { const inp = document.getElementById('pm-history-input'); const t = inp.value.trim(); if(!t) return; await sb.from('private_messages').insert([{ sender_id: currentUser.user_id, receiver_id: otherUserId, content: t }]); showChatHistory(otherUserId, otherUsername); };
 window.sendReport = async () => { const t = el('report-text').value.trim(); if(!t) return alert('Please write a message first.'); await sb.from('private_messages').insert([{ sender_id: currentUser.user_id, receiver_id: 1, content: '🚨 REPORT: ' + t }]); el('report-text').value = ''; alert('Report sent to Admin!'); };
 window.startNewPM = async (u) => { if(!u) u = prompt('Enter username to send a PM:'); if(!u) return; const { data: receiver } = await sb.from('app_users').select('*').eq('username', u).single(); if (receiver) { openPMPopup(u, "", receiver); const popupId = document.querySelector('.pm-popup-card').id; showReplyBox(popupId, u); } else { alert("User not found"); } };
