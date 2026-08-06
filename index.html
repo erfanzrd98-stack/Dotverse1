@@ -112,7 +112,6 @@
     <div class="topbar-btn" id="tb-profile"><span class="tb-icon">👤</span><span class="tb-label">Profile</span></div>
     <div class="topbar-btn" id="tb-pms"><span class="tb-icon">👥</span><span class="tb-label">Community</span></div>
     <div class="topbar-btn" id="tb-rooms"><span class="tb-icon">💬</span><span class="tb-label">Rooms</span></div>
-    <div class="topbar-btn" id="tb-myrooms"><span class="tb-icon">👑</span><span class="tb-label">My Rooms</span></div>
     <div class="topbar-btn" id="tb-dots"><span class="tb-icon">🪙</span><span class="tb-label">Dots</span></div>
     <div class="topbar-btn" id="tb-search"><span class="tb-icon">🔍</span><span class="tb-label">Search</span></div>
     <div class="topbar-btn hidden" id="tb-admin"><span class="tb-icon">🛡️</span><span class="tb-label">Admin</span></div>
@@ -135,7 +134,7 @@ const SUPABASE_URL = "https://secsiftaabzbrfbaeaxn.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlY3NpZnRhYWJ6YnJmYmFlYXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3ODY4NzIsImV4cCI6MjEwMTM2Mjg3Mn0.ZBFujtK74JZK6NsI5vGO_O733qY2rSsPmvnbBcZSxu4";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const ADMIN_GIF = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/Dot.gif";
-const SM_CROWN_URL = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/SM.png"; // تاج یوزر ۳ و سوپر مدیر
+const SM_CROWN_URL = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/SM.png";
 
 let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, banCheckInterval = null;
 const userCache = {}; 
@@ -149,7 +148,6 @@ function showMsg(t,ok){const e=el('auth-msg');e.textContent=t;e.className='auth-
 el('tab-login').onclick=()=>{el('tab-login').classList.add('active');el('tab-register').classList.remove('active');el('form-login').classList.remove('hidden');el('form-register').classList.add('hidden');showMsg('',true);};
 el('tab-register').onclick=()=>{el('tab-register').classList.add('active');el('tab-login').classList.remove('active');el('form-register').classList.remove('hidden');el('form-login').classList.add('hidden');showMsg('',true);};
 
-// --- Auth Logic ---
 el('btn-register').onclick = async () => {
   const u=el('reg-username').value.trim(),p=el('reg-password').value,g=el('reg-gender').value,c=el('reg-city').value.trim();
   if(u.length < 3 || u.length > 14) return showMsg('Username must be 3-14 chars.');
@@ -166,23 +164,25 @@ el('btn-login').onclick = async () => {
   currentUser = data; startApp();
 };
 
-// --- App Shell Logic ---
 async function startApp(){
   el('auth-screen').classList.add('hidden'); el('shell').classList.remove('hidden');
   if(currentUser.is_admin || currentUser.is_super_mod) el('tb-admin').classList.remove('hidden');
   joinRoom(1); subscribeToPMs(); subscribeToBroadcasts(); startBanCheck();
 }
 
-// --- Classic PM Color Scheme ---
+// --- Classic PM Color Scheme (Admin & SysBot first!) ---
 function getPmColorScheme(user) {
   if (!user) return { card_border:'#6b7280', header_bg:'linear-gradient(#6b7280, #4b5563)', header_color:'#fff', close_bg:'#9ca3af', close_color:'#000', body_bg:'#e5e7eb', body_color:'#000', footer_bg:'linear-gradient(#6b7280, #4b5563)', footer_color:'#000', footer_border:'#6b7280' };
+  
+  if (user.is_admin) return { card_border:'#6b3200', header_bg:'linear-gradient(#a44600, #8c3d00)', header_color:'#fff', close_bg:'#ef6500', close_color:'#000', body_bg:'#ff7910', body_color:'#000', footer_bg:'linear-gradient(#a44600, #8c3d00)', footer_color:'#000', footer_border:'#a4600e' };
+  if (user.user_id === 3 || user.is_super_mod) return { card_border:'#ca8a04', header_bg:'linear-gradient(#ca8a04, #facc15)', header_color:'#3a2f02', close_bg:'#fde047', close_color:'#3a2f02', body_bg:'#fde047', body_color:'#3a2f02', footer_bg:'linear-gradient(#ca8a04, #facc15)', footer_color:'#3a2f02', footer_border:'#ca8a04' };
+  
   if (user.pm_color && user.pm_color_expires && new Date(user.pm_color_expires) > new Date()) {
     if (user.pm_color === 'black') return { card_border:'#000', header_bg:'linear-gradient(#3a3a3a, #000000)', header_color:'#fff', close_bg:'#5a5a5a', close_color:'#fff', body_bg:'#1a1a1a', body_color:'#fff', footer_bg:'linear-gradient(#3a3a3a, #000000)', footer_color:'#fff', footer_border:'#000' };
     if (user.pm_color === 'jade') return { card_border:'#0F3D2E', header_bg:'linear-gradient(#0F3D2E, #6ED1AC)', header_color:'#fff', close_bg:'#A8ECD0', close_color:'#0f3d2e', body_bg:'#A8ECD0', body_color:'#0f3d2e', footer_bg:'linear-gradient(#0F3D2E, #6ED1AC)', footer_color:'#fff', footer_border:'#0F3D2E' };
     if (user.pm_color === 'olive') return { card_border:'#3A3B14', header_bg:'linear-gradient(#3A3B14, #B0B25E)', header_color:'#fff', close_bg:'#D4D69C', close_color:'#2b2c10', body_bg:'#D4D69C', body_color:'#2b2c10', footer_bg:'linear-gradient(#3A3B14, #B0B25E)', footer_color:'#fff', footer_border:'#3A3B14' };
   }
-  if (user.is_admin) return { card_border:'#6b3200', header_bg:'linear-gradient(#a44600, #8c3d00)', header_color:'#fff', close_bg:'#ef6500', close_color:'#000', body_bg:'#ff7910', body_color:'#000', footer_bg:'linear-gradient(#a44600, #8c3d00)', footer_color:'#000', footer_border:'#a4600e' };
-  if (user.user_id === 3 || user.is_super_mod) return { card_border:'#ca8a04', header_bg:'linear-gradient(#ca8a04, #facc15)', header_color:'#3a2f02', close_bg:'#fde047', close_color:'#3a2f02', body_bg:'#fde047', body_color:'#3a2f02', footer_bg:'linear-gradient(#ca8a04, #facc15)', footer_color:'#3a2f02', footer_border:'#ca8a04' };
+
   let score = user.rating_points || 0; let gender = user.gender || 'male';
   if (score <= 100) return gender === 'female' ? { card_border:'#6B1A38', header_bg:'linear-gradient(#6B1A38, #E38FAE)', header_color:'#4a0f22', close_bg:'#FBD3E0', close_color:'#4a0f22', body_bg:'#FBD3E0', body_color:'#4a0f22', footer_bg:'linear-gradient(#6B1A38, #E38FAE)', footer_color:'#4a0f22', footer_border:'#6B1A38' } : { card_border:'#1B3A66', header_bg:'linear-gradient(#1B3A66, #6FA3E0)', header_color:'#12233d', close_bg:'#C9E0FB', close_color:'#12233d', body_bg:'#C9E0FB', body_color:'#12233d', footer_bg:'linear-gradient(#1B3A66, #6FA3E0)', footer_color:'#12233d', footer_border:'#1B3A66' };
   if (score <= 200) return gender === 'female' ? { card_border:'#4A0026', header_bg:'linear-gradient(#4A0026, #A80058)', header_color:'#fff', close_bg:'#B8106A', close_color:'#fff', body_bg:'#B8106A', body_color:'#fff', footer_bg:'linear-gradient(#4A0026, #A80058)', footer_color:'#fff', footer_border:'#4A0026' } : { card_border:'#081428', header_bg:'linear-gradient(#081428, #173B72)', header_color:'#fff', close_bg:'#1B4FA0', close_color:'#fff', body_bg:'#1B4FA0', body_color:'#fff', footer_bg:'linear-gradient(#081428, #173B72)', footer_color:'#fff', footer_border:'#081428' };
@@ -193,12 +193,10 @@ function getPmColorScheme(user) {
   return { card_border:'#B0B0B0', header_bg:'linear-gradient(#B0B0B0, #EFEFEF)', header_color:'#1a1a1a', close_bg:'#FFFFFF', close_color:'#1a1a1a', body_bg:'#FFFFFF', body_color:'#1a1a1a', footer_bg:'linear-gradient(#B0B0B0, #EFEFEF)', footer_color:'#1a1a1a', footer_border:'#B0B0B0' };
 }
 
-// --- Treasury & Logs Helper ---
 async function getTreasury() { const { data } = await sb.from('admin_settings').select('*').eq('id', 1).single(); return data; }
 async function updateTreasury(updates) { await sb.from('admin_settings').update(updates).eq('id', 1); }
 async function addLog(text) { await sb.from('transaction_logs').insert([{ user_id: currentUser.user_id, log_text: text }]); }
 
-// --- Ban Check Polling ---
 function startBanCheck() { if (banCheckInterval) clearInterval(banCheckInterval); checkBanStatus(); banCheckInterval = setInterval(checkBanStatus, 5000); }
 async function checkBanStatus() {
   if (!currentUser) return;
@@ -211,7 +209,6 @@ async function checkBanStatus() {
   else { currentUser.ban_fine = u.ban_fine; }
 }
 
-// --- Broadcast Logic ---
 function subscribeToBroadcasts() {
   if (broadcastSubscription) sb.removeChannel(broadcastSubscription);
   sb.from('broadcasts').select('*').gt('expires_at', new Date().toISOString()).then(({ data }) => { if (data && data.length > 0) showBroadcast(data[0]); });
@@ -223,7 +220,6 @@ function showBroadcast(b) {
   setTimeout(() => { root.classList.add('hidden'); root.innerHTML = ''; }, expires.getTime() - now.getTime());
 }
 
-// --- Chat Room Logic ---
 async function joinRoom(id){
   closeModal();
   if (id === 2 && currentUser.user_id !== 1 && currentUser.user_id !== 3) {
@@ -280,7 +276,7 @@ el('btn-send').onclick = async () => {
 };
 el('msg-input').addEventListener('keydown', e => { if(e.key==='Enter') el('btn-send').click(); });
 
-// --- Private Message (PM) Logic ---
+// --- PM Logic ---
 function subscribeToPMs() {
   if (pmSubscription) sb.removeChannel(pmSubscription);
   pmSubscription = sb.channel('private_messages').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages', filter: `receiver_id=eq.${currentUser.user_id}` }, payload => handleIncomingPM(payload.new)).subscribe();
@@ -432,8 +428,14 @@ window.selColor = (c, e) => { window._co = c; e.parentElement.querySelectorAll('
 window.saveProfile = async () => { let finalAvatar = window._av; if(currentUser.is_admin) finalAvatar = ADMIN_GIF; const newUsername = el('p-username').value.trim(); const newPassword = el('p-password').value; if(newUsername.length < 3 || newUsername.length > 14) return alert('Username must be 3-14 chars.'); if(newPassword && (newPassword.length < 3 || newPassword.length > 14)) return alert('Password must be 3-14 chars.'); const updates = { username: newUsername, gender: window._gender, city: el('p-city').value.trim(), id_color: window._co, avatar_url: finalAvatar }; if(newPassword) updates.password = newPassword; const { data } = await sb.from('app_users').update(updates).eq('user_id', currentUser.user_id).select().single(); currentUser = data; userCache[currentUser.user_id] = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, _ts: Date.now() }; alert('Saved successfully!'); closeModal(); };
 
 // --- Rooms & My Rooms Logic ---
-el('tb-rooms').onclick = async () => { const { data } = await sb.from('rooms').select('*').order('rating_points', { ascending: false }); let rows = ''; data.forEach(r => { const icon = r.room_id === 1 ? '💬' : r.room_id === 2 ? '⭐' : r.room_id === 3 ? '🚫' : '🏠'; rows += `<div class="list-row" onclick="joinRoom(${r.room_id})"><span>${icon}</span><span style="flex:1;font-weight:600;">${escapeHtml(r.name)}</span><span style="color:var(--muted)">${r.rating_points} pts</span></div>`; }); rows += `<button class="btn" style="margin-top:16px;" onclick="createRoomPrompt()">➕ Create Room (10 Ð)</button>`; openModal('Chat Rooms', rows); };
-el('tb-myrooms').onclick = async () => {
+el('tb-rooms').onclick = async () => {
+  const { data } = await sb.from('rooms').select('*').order('rating_points', { ascending: false });
+  let rows = '<button class="btn" style="margin-bottom:15px;" onclick="showMyRooms()">👑 My Rooms</button>';
+  data.forEach(r => { const icon = r.room_id === 1 ? '💬' : r.room_id === 2 ? '⭐' : r.room_id === 3 ? '🚫' : '🏠'; rows += `<div class="list-row" onclick="joinRoom(${r.room_id})"><span>${icon}</span><span style="flex:1;font-weight:600;">${escapeHtml(r.name)}</span><span style="color:var(--muted)">${r.rating_points} pts</span></div>`; });
+  rows += `<button class="btn" style="margin-top:16px;" onclick="createRoomPrompt()">➕ Create Room (10 Ð)</button>`;
+  openModal('Chat Rooms', rows);
+};
+window.showMyRooms = async () => {
   const { data: ownedRooms } = await sb.from('rooms').select('*').or(`creator_id.eq.${currentUser.user_id},owner_id.eq.${currentUser.user_id}`);
   const { data: modRooms } = await sb.from('room_moderators').select('room_id').eq('user_id', currentUser.user_id);
   let html = '<div style="font-size:14px; font-weight:bold; margin-bottom:10px;">My Rooms (Creator/Owner)</div>';
@@ -456,23 +458,22 @@ window.addModerator = async () => { const id = parseInt(el('mod-id-input').value
 window.removeModerator = async (uid) => { if (!confirm('Remove this moderator?')) return; await sb.from('room_moderators').delete().eq('room_id', currentRoom).eq('user_id', uid); alert('Moderator removed!'); el('tb-roominfo').click(); };
 window.transferOwnership = async () => { const id = parseInt(el('owner-id-input').value); if (!id) return alert('Enter a valid ID.'); if (id === currentUser.user_id) return alert('You are already the owner.'); const { data: target } = await sb.from('app_users').select('user_id').eq('user_id', id).single(); if (!target) return alert('User not found.'); const { error } = await sb.from('rooms').update({ owner_id: id }).eq('room_id', currentRoom); if (error) return alert('Error transferring ownership.'); alert('Ownership transferred!'); el('tb-roominfo').click(); };
 
-// --- Admin Panel Logic (Redesigned with Bubbles) ---
+// --- Admin Panel Logic (Redesigned) ---
 el('tb-admin').onclick = async () => {
-  const isSuper = currentUser.is_super_mod;
-  const isAdmin = currentUser.is_admin;
+  if (!currentUser.is_admin && !currentUser.is_super_mod) return;
   
   let tabsHtml = `<div class="pm-modal-tabs">`;
-  if (isSuper && !isAdmin) {
+  if (currentUser.is_super_mod && !currentUser.is_admin) {
     tabsHtml += `<div class="pm-modal-tab active" onclick="switchAdminTab('sm_ban', this)">Ban / Unban</div>`;
-  } else if (isAdmin) {
+  } else {
     tabsHtml += `<div class="pm-modal-tab active" onclick="switchAdminTab('requests', this)">Requests</div><div class="pm-modal-tab" onclick="switchAdminTab('users', this)">Users</div><div class="pm-modal-tab" onclick="switchAdminTab('rooms', this)">Rooms</div><div class="pm-modal-tab" onclick="switchAdminTab('economy', this)">Economy</div><div class="pm-modal-tab" onclick="switchAdminTab('super_mods', this)">Super Mods</div>`;
   }
   tabsHtml += `</div>`;
   
   let contentHtml = '';
-  if (isSuper && !isAdmin) {
+  if (currentUser.is_super_mod && !currentUser.is_admin) {
     contentHtml += `<div id="admin-sm_ban"><div class="admin-bubble"><div class="admin-bubble-title">🔨 Ban User</div><div class="admin-bubble-row"><input type="number" id="sm-ban-id" placeholder="User ID" style="flex:1;"><input type="number" id="sm-ban-mins" placeholder="Mins" style="width:60px;"><input type="number" id="sm-ban-fine" placeholder="Fine Ð" style="width:70px;"><button onclick="adminBanAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔓 Unban User</div><div class="admin-bubble-row"><input type="number" id="sm-unban-id" placeholder="User ID" style="flex:1;"><button class="success" onclick="adminUnbanAction()">OK</button></div></div></div>`;
-  } else if (isAdmin) {
+  } else {
     const treasury = await getTreasury();
     contentHtml += `<div id="admin-requests"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading requests...</p></div>`;
     contentHtml += `<div id="admin-users" class="hidden"><div class="admin-bubble"><div class="admin-bubble-title">🔨 Ban User</div><div class="admin-bubble-row"><input type="number" id="ban-id" placeholder="User ID" style="flex:1;"><input type="number" id="ban-mins" placeholder="Mins" style="width:60px;"><input type="number" id="ban-fine" placeholder="Fine Ð" style="width:70px;"><button onclick="adminBanAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔓 Unban User</div><div class="admin-bubble-row"><input type="number" id="unban-id" placeholder="User ID" style="flex:1;"><button class="success" onclick="adminUnbanAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">⭐ Add Rating</div><div class="admin-bubble-row"><input type="number" id="addrate-id" placeholder="User ID" style="flex:1;"><input type="number" id="addrate-amt" placeholder="Points" style="width:80px;"><button class="success" onclick="adminAddRateAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔻 Cut Rating</div><div class="admin-bubble-row"><input type="number" id="cutrate-id" placeholder="User ID" style="flex:1;"><input type="number" id="cutrate-amt" placeholder="Points" style="width:80px;"><button class="danger" onclick="adminCutRateAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔑 Reset Password</div><div class="admin-bubble-row"><input type="number" id="reset-id" placeholder="User ID" style="flex:1;"><button onclick="adminResetPassAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🪙 Adjust Dots</div><div class="admin-bubble-row"><input type="number" id="dots-id" placeholder="User ID" style="flex:1;"><input type="number" id="dots-amt" placeholder="+/- Ð" style="width:80px;"><button onclick="adminAdjustDotsAction()">OK</button></div></div></div>`;
@@ -481,11 +482,14 @@ el('tb-admin').onclick = async () => {
     contentHtml += `<div id="admin-super_mods" class="hidden"><div class="admin-bubble"><div class="admin-bubble-title">➕ Add Super Moderator</div><div class="admin-bubble-row"><input type="number" id="sm-id" placeholder="User ID" style="flex:1;"><button class="success" onclick="adminAddSMAction()">Add</button></div></div><div id="sm-list"><p style="color:var(--muted);font-size:12px;">Loading Super Mods...</p></div></div>`;
   }
 
-  openModal('🛡️ Admin Panel', `<div style="background:#f4f5f7; padding:10px; border-radius:8px; margin-bottom:15px; font-size:13px;"><div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Tax Balance:</span><b>${treasury ? parseFloat(treasury.tax_balance).toFixed(2) : '0.00'} Ð</b></div><div style="display:flex; justify-content:space-between;"><span>Fund Balance:</span><b>${treasury ? parseFloat(treasury.fund_balance).toFixed(2) : '0.00'} Ð</b></div></div>${tabsHtml}${contentHtml}`);
-  
-  if (isAdmin) { loadAdminRequests(); loadAdminGifts(); loadAdminSMs(); }
-};
+  const treasuryBal = currentUser.is_admin ? await getTreasury() : null;
+  const taxBal = treasuryBal ? parseFloat(treasuryBal.tax_balance).toFixed(2) : '0.00';
+  const fundBal = treasuryBal ? parseFloat(treasuryBal.fund_balance).toFixed(2) : '0.00';
 
+  openModal('🛡️ Admin Panel', `<div style="background:#f4f5f7; padding:10px; border-radius:8px; margin-bottom:15px; font-size:13px;"><div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Tax Balance:</span><b>${taxBal} Ð</b></div><div style="display:flex; justify-content:space-between;"><span>Fund Balance:</span><b>${fundBal} Ð</b></div></div>${tabsHtml}${contentHtml}`);
+  
+  if (currentUser.is_admin) { loadAdminRequests(); loadAdminGifts(); loadAdminSMs(); }
+};
 window.switchAdminTab = (tab, btn) => { document.querySelectorAll('.pm-modal-tab').forEach(t => t.classList.remove('active')); btn.classList.add('active'); ['requests','users','rooms','economy','super_mods','sm_ban'].forEach(t => { const elId = `admin-${t}`; if(el(elId)) el(elId).classList.add('hidden'); }); if(el(`admin-${tab}`)) el(`admin-${tab}`).classList.remove('hidden'); };
 
 async function loadAdminRequests() {
@@ -494,22 +498,18 @@ async function loadAdminRequests() {
   if (reqs && reqs.length > 0) {
     html += reqs.map(u => `<div class="friend-row" style="cursor:default;"><div class="friend-info"><span class="friend-av">🙂</span><span class="friend-name">${escapeHtml(u.username)} (#${u.user_id})</span></div><div class="friend-actions"><button class="btn-sm" style="background:#16a34a;color:#fff;" onclick="adminVerifyAction(${u.user_id})">✔</button><button class="btn-sm" style="background:#ef4444;color:#fff;" onclick="adminRejectVerifyAction(${u.user_id})">✖</button></div></div>`).join('');
   } else { html += '<p style="color:var(--muted);font-size:12px;">No pending requests.</p>'; }
-  
   const { data: reports } = await sb.from('private_messages').select('id, content, sender:app_users(username)').eq('receiver_id', 1).ilike('content', '🚨%').order('created_at', { ascending: false }).limit(10);
   html += '<div style="font-size:14px; font-weight:bold; margin-top:20px; margin-bottom:10px;">User Reports</div>';
   if (reports && reports.length > 0) {
     html += reports.map(r => `<div class="list-row" style="cursor:default; flex-direction:column; align-items:flex-start;"><span style="font-weight:600;">From: ${r.sender ? r.sender.username : 'Unknown'}</span><span style="font-size:12px; color:var(--muted); margin-top:4px;">${escapeHtml(r.content.replace('🚨 REPORT: ', ''))}</span></div>`).join('');
   } else { html += '<p style="color:var(--muted);font-size:12px;">No reports.</p>'; }
-  
   if(el('admin-requests')) el('admin-requests').innerHTML = html;
 }
-
 async function loadAdminGifts() {
   const { data: gifts } = await sb.from('gifts').select('*');
   let html = gifts.map(g => `<div class="list-row" style="cursor:default;"><span class="friend-av" style="background:transparent; font-size:24px;">${g.image_url}</span><div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:13px;">${escapeHtml(g.name)}</div><div style="font-size:11px; color:var(--muted);">${g.price} Ð | Stock: ${g.stock}</div></div><button class="btn-sm" onclick="adminEditGiftAction('${g.id}', '${escapeHtml(g.name)}')">Edit</button></div>`).join('');
   if(el('admin-gifts-list')) el('admin-gifts-list').innerHTML = html;
 }
-
 async function loadAdminSMs() {
   const { data: sms } = await sb.from('app_users').select('user_id, username, avatar_url').eq('is_super_mod', true);
   let html = '<div style="font-size:14px; font-weight:bold; margin-bottom:10px;">Current Super Mods</div>';
@@ -518,8 +518,6 @@ async function loadAdminSMs() {
   } else { html += '<p style="color:var(--muted);font-size:12px;">No Super Mods yet.</p>'; }
   if(el('sm-list')) el('sm-list').innerHTML = html;
 }
-
-// Admin Actions
 window.adminVerifyAction = async (id) => { await sb.from('app_users').update({ is_verified: true, verification_requested: false }).eq('user_id', id); alert('User verified!'); loadAdminRequests(); };
 window.adminRejectVerifyAction = async (id) => { await sb.from('app_users').update({ verification_requested: false }).eq('user_id', id); alert('Request rejected.'); loadAdminRequests(); };
 window.adminBanAction = async () => { const id = el('ban-id') ? el('ban-id').value : el('sm-ban-id').value; const mins = el('ban-mins') ? el('ban-mins').value : el('sm-ban-mins').value; const fine = el('ban-fine') ? el('ban-fine').value : el('sm-ban-fine').value; if(!id || !mins) return alert('Enter ID and Mins.'); const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single(); if(!u) return alert('User not found.'); const banUntil = new Date(Date.now() + parseInt(mins) * 60000).toISOString(); let newCurrency = parseFloat(u.currency); if(parseFloat(fine) > 0) { newCurrency -= parseFloat(fine); if(newCurrency < 0) newCurrency = 0; const treasury = await getTreasury(); await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(fine) }); } await sb.from('app_users').update({ banned_until: banUntil, current_room_id: 3, currency: newCurrency, ban_fine: parseFloat(fine) }).eq('user_id', id); await sb.from('public_messages').insert([{ room_id: u.current_room_id || 1, user_id: 3, username: 'SystemBot', content: `🔨 User ${u.username} has been banned.` }]); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: id, content: `🚨 You have been banned for ${mins} minutes. Fine: ${fine} Ð.` }]); alert('User banned!'); el('tb-admin').click(); };
