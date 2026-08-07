@@ -138,8 +138,6 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const ADMIN_GIF = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/Dot.gif";
 const SM_CROWN_URL = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/SM.png";
-
-// [مهم] آدرس Worker کلودفلر شما
 const AI_WORKER_URL = "https://dotverse-nova.erfanzrd98.workers.dev/"; 
 
 let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, banCheckInterval = null, lastAiRequest = 0;
@@ -154,20 +152,41 @@ function showMsg(t,ok){const e=el('auth-msg');e.textContent=t;e.className='auth-
 el('tab-login').onclick=()=>{el('tab-login').classList.add('active');el('tab-register').classList.remove('active');el('form-login').classList.remove('hidden');el('form-register').classList.add('hidden');showMsg('',true);};
 el('tab-register').onclick=()=>{el('tab-register').classList.add('active');el('tab-login').classList.remove('active');el('form-register').classList.remove('hidden');el('form-login').classList.add('hidden');showMsg('',true);};
 
+// FIXED: Robust Login Error Handling
 el('btn-register').onclick = async () => {
   const u=el('reg-username').value.trim(),p=el('reg-password').value,g=el('reg-gender').value,c=el('reg-city').value.trim();
   if(u.length < 3 || u.length > 14) return showMsg('Username must be 3-14 chars.');
   if(p.length < 3 || p.length > 14) return showMsg('Password must be 3-14 chars.');
-  const { data, error } = await sb.from('app_users').insert([{ username: u, password: p, gender: g, city: c, currency: 10.00 }]).select().single();
-  if (error) { if(error.message.includes('duplicate')) return showMsg('Username already exists.'); return showMsg('Error: ' + error.message); }
-  currentUser = data; startApp();
+  try {
+    const { data, error } = await sb.from('app_users').insert([{ username: u, password: p, gender: g, city: c, currency: 10.00 }]).select().single();
+    if (error) {
+      console.error("Reg Error:", error);
+      if(error.message.includes('duplicate')) return showMsg('Username already exists.');
+      return showMsg('DB Error: ' + error.message);
+    }
+    currentUser = data; startApp();
+  } catch(e) {
+    console.error("Network Error:", e);
+    showMsg('Network Error: Cannot connect to DB.');
+  }
 };
+
 el('btn-login').onclick = async () => {
   const u=el('login-username').value.trim(),p=el('login-password').value;
   if(!u||!p) return showMsg('Enter credentials.');
-  const { data, error } = await sb.from('app_users').select('*').eq('username', u).eq('password', p).single();
-  if (error || !data) return showMsg('Invalid username or password.');
-  currentUser = data; startApp();
+  try {
+    const { data, error } = await sb.from('app_users').select('*').eq('username', u).eq('password', p).single();
+    if (error) {
+      console.error("Login Error:", error);
+      if(error.message.includes('multiple')) return showMsg('Duplicate users found.');
+      return showMsg('Invalid username or password.');
+    }
+    if (!data) return showMsg('User not found.');
+    currentUser = data; startApp();
+  } catch(e) {
+    console.error("Network Error:", e);
+    showMsg('Network Error: Cannot connect to DB.');
+  }
 };
 
 async function startApp(){
@@ -273,25 +292,17 @@ async function handleAiPrompt(text) {
   const now = Date.now();
   if (now - lastAiRequest < 30000) return alert('Please wait 30 seconds before asking Nova again.');
   lastAiRequest = now;
-  
   try {
-    const res = await fetch(AI_WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: text })
-    });
+    const res = await fetch(AI_WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text }) });
     const data = await res.json();
     if (data.error) return alert('Nova Error: ' + data.error);
     return data.reply;
-  } catch (e) {
-    return alert('Failed to connect to Nova.');
-  }
+  } catch (e) { return alert('Failed to connect to Nova.'); }
 }
 
 el('btn-send').onclick = async () => {
   if (new Date(currentUser.banned_until) > new Date()) return alert('You are banned and cannot send messages.');
   const t = el('msg-input').value.trim(); if (!t) return; el('msg-input').value = '';
-  
   const lowerT = t.toLowerCase();
   let isAi = false, promptText = t;
   if (lowerT.startsWith('bot ')) { isAi = true; promptText = t.substring(4); }
@@ -303,15 +314,12 @@ el('btn-send').onclick = async () => {
   let pointsToAdd = currentRoom === 2 ? 2 : 1;
   const { data: updatedUser, error: userErr } = await sb.from('app_users').update({ rating_points: currentUser.rating_points + pointsToAdd }).eq('user_id', currentUser.user_id).select().single();
   if (!userErr) currentUser = updatedUser;
-  
   const { data: room } = await sb.from('rooms').select('rating_points').eq('room_id', currentRoom).single();
   if (room) { await sb.from('rooms').update({ rating_points: room.rating_points + 1 }).eq('room_id', currentRoom); el('room-meta').textContent = 'ID: ' + currentRoom + ' · ' + (room.rating_points + 1) + ' pts'; }
 
   if (isAi) {
     const aiReply = await handleAiPrompt(promptText);
-    if (aiReply) {
-      await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 4, username: 'Nova', content: aiReply }]);
-    }
+    if (aiReply) { await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 4, username: 'Nova', content: aiReply }]); }
   }
 };
 el('msg-input').addEventListener('keydown', e => { if(e.key==='Enter') el('btn-send').click(); });
@@ -346,16 +354,12 @@ async function sendReply(sender, popupId) {
     if (error) return alert('Error sending PM: ' + error.message);
     const { data: updatedUser } = await sb.from('app_users').update({ rating_points: currentUser.rating_points + 1 }).eq('user_id', currentUser.user_id).select().single();
     if (updatedUser) currentUser = updatedUser;
-    
     const lowerT = t.toLowerCase();
     if ((lowerT.startsWith('bot ') || lowerT.startsWith('بات ')) && sender === 'Nova') {
       let promptText = lowerT.startsWith('bot ') ? t.substring(4) : t.substring(4);
       const aiReply = await handleAiPrompt(promptText);
-      if (aiReply) {
-        await sb.from('private_messages').insert([{ sender_id: 4, receiver_id: currentUser.user_id, content: aiReply }]);
-      }
+      if (aiReply) { await sb.from('private_messages').insert([{ sender_id: 4, receiver_id: currentUser.user_id, content: aiReply }]); }
     }
-    
     document.getElementById(popupId).remove(); 
   } else { alert('User not found'); }
 }
@@ -407,14 +411,11 @@ window.sendPMFromHistory = async (otherUserId, otherUsername) => {
   if (error) return alert('Error sending PM: ' + error.message);
   const { data: updatedUser } = await sb.from('app_users').update({ rating_points: currentUser.rating_points + 1 }).eq('user_id', currentUser.user_id).select().single();
   if (updatedUser) currentUser = updatedUser;
-
   const lowerT = t.toLowerCase();
   if ((lowerT.startsWith('bot ') || lowerT.startsWith('بات ')) && otherUsername === 'Nova') {
     let promptText = lowerT.startsWith('bot ') ? t.substring(4) : t.substring(4);
     const aiReply = await handleAiPrompt(promptText);
-    if (aiReply) {
-      await sb.from('private_messages').insert([{ sender_id: 4, receiver_id: currentUser.user_id, content: aiReply }]);
-    }
+    if (aiReply) { await sb.from('private_messages').insert([{ sender_id: 4, receiver_id: currentUser.user_id, content: aiReply }]); }
   }
   showChatHistory(otherUserId, otherUsername); 
 };
@@ -477,7 +478,7 @@ window.redeemCode = async () => { const code = el('rd-code').value.trim(); if(!c
 window.openGamesModal = () => { openModal('Games', `<div class="list-row" onclick="openRouletteModal()"><span style="font-size:20px;">🎰</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Roulette</div><div style="font-size:11px; color:var(--muted);">Bet on Even/Odd, Dozens, or Exact Number</div></div></div><div class="list-row" onclick="openRPSModal()"><span style="font-size:20px;">✊</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Rock Paper Scissors</div><div style="font-size:11px; color:var(--muted);">Simple 2x payout game</div></div></div>`); };
 window.openRouletteModal = () => { openModal('Roulette', `<label class="field">Bet Type</label><select id="rl-type" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);"><option value="even">Even (2x)</option><option value="odd">Odd (2x)</option><option value="dozen1">1-12 (3x)</option><option value="dozen2">13-24 (3x)</option><option value="dozen3">25-36 (3x)</option><option value="number">Exact Number 0-36 (36x)</option></select><div id="rl-num-wrap" class="hidden" style="margin-top:10px;"><label class="field">Number (0-36)</label><input type="number" id="rl-num" min="0" max="36" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);" /></div><label class="field">Bet Amount (Ð)</label><input type="number" id="rl-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);" /><button class="btn" onclick="playRoulette()">Spin 🎲</button><div id="rl-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); document.getElementById('rl-type').addEventListener('change', (e) => document.getElementById('rl-num-wrap').classList.toggle('hidden', e.target.value !== 'number')); };
 window.playRoulette = async () => { const type = document.getElementById('rl-type').value; const num = document.getElementById('rl-num') ? parseInt(document.getElementById('rl-num').value) : 0; const amt = parseFloat(document.getElementById('rl-amt').value); if(!amt || amt <= 0) return alert('Invalid bet amount.'); if(amt > currentUser.currency) return alert('Not enough dots.'); if(type === 'number' && (isNaN(num) || num < 0 || num > 36)) return alert('Invalid number (0-36).'); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; const treasury = await getTreasury(); const result = Math.floor(Math.random() * 37); let win = false, multiplier = 0; if (type === 'even' && result !== 0 && result % 2 === 0) { win = true; multiplier = 2; } else if (type === 'odd' && result % 2 === 1) { win = true; multiplier = 2; } else if (type === 'dozen1' && result >= 1 && result <= 12) { win = true; multiplier = 3; } else if (type === 'dozen2' && result >= 13 && result <= 24) { win = true; multiplier = 3; } else if (type === 'dozen3' && result >= 25 && result <= 36) { win = true; multiplier = 3; } else if (type === 'number' && result === num) { win = true; multiplier = 36; } let resultText = `Result: ${result}. You ${win ? 'WON' : 'LOST'}.`; if (win) { const payout = amt * multiplier; const { data: finalUser } = await sb.from('app_users').update({ currency: currentUser.currency + payout }).eq('user_id', currentUser.user_id).select().single(); currentUser = finalUser; await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - payout }); resultText += ` +${payout.toFixed(2)} Ð`; await addLog(`Roulette: Won ${payout.toFixed(2)} Ð`); } else { await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + amt }); await addLog(`Roulette: Lost ${amt} Ð`); } document.getElementById('rl-res').textContent = resultText; document.getElementById('rl-res').style.color = win ? '#16a34a' : '#ef4444'; };
-window.openRPSModal = () => { openModal('Rock Paper Scissors', `<p style="font-size:13px; color:var(--muted); text-align:center; margin-bottom:15px;">Choose your weapon. Win 2x your bet.</p><label class="field">Bet Amount (Ð)</label><input type="number" id="rps-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); margin-bottom:15px;" /><div style="display:flex; gap:10px;"><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRMS('rock')">✊</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button></div><div id="rps-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); };
+window.openRPSModal = () => { openModal('Rock Paper Scissors', `<p style="font-size:13px; color:var(--muted); text-align:center; margin-bottom:15px;">Choose your weapon. Win 2x your bet.</p><label class="field">Bet Amount (Ð)</label><input type="number" id="rps-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); margin-bottom:15px;" /><div style="display:flex; gap:10px;"><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playPMS('rock')">✊</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button></div><div id="rps-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); };
 window.playRPS = async (choice) => { const amt = parseFloat(document.getElementById('rps-amt').value); if(!amt || amt <= 0) return alert('Invalid bet amount.'); if(amt > currentUser.currency) return alert('Not enough dots.'); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; const treasury = await getTreasury(); const choices = ['rock', 'paper', 'scissors']; const botChoice = choices[Math.floor(Math.random() * 3)]; let win = false, tie = false; if (choice === botChoice) tie = true; else if ((choice === 'rock' && botChoice === 'scissors') || (choice === 'paper' && botChoice === 'rock') || (choice === 'scissors' && botChoice === 'paper')) win = true; const icons = { rock: '✊', paper: '✋', scissors: '✌️' }; let resultText = `You: ${icons[choice]} | Bot: ${icons[botChoice]}<br>`; if (tie) { resultText += 'TIE! Bet returned.'; const { data: finalUser } = await sb.from('app_users').update({ currency: currentUser.currency + amt }).eq('user_id', currentUser.user_id).select().single(); currentUser = finalUser; } else if (win) { const payout = amt * 2; const { data: finalUser } = await sb.from('app_users').update({ currency: currentUser.currency + payout }).eq('user_id', currentUser.user_id).select().single(); currentUser = finalUser; await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - payout }); resultText += `WIN! +${payout.toFixed(2)} Ð`; await addLog(`RPS: Won ${payout.toFixed(2)} Ð`); } else { await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + amt }); await addLog(`RPS: Lost ${amt} Ð`); resultText += 'LOST!'; } const resEl = document.getElementById('rps-res'); resEl.innerHTML = resultText; resEl.style.color = tie ? '#ca8a04' : (win ? '#16a34a' : '#ef4444'); };
 window.openTransferDotsModal = () => { openModal('Send Dots',`<label class="field">Recipient ID Number</label><input type="number" id="td-to" placeholder="e.g. 2" /><label class="field">Amount (Ð)</label><input type="number" id="td-amt" placeholder="e.g. 1.50" step="0.01" min="0.01" /><p style="font-size:12px;color:var(--muted);margin-top:5px;">10% tax applies. Receiver gets 90%.</p><button class="btn" onclick="transferDots()">Send</button>`); };
 window.transferDots = async () => { const toId = parseInt(el('td-to').value); const amt = parseFloat(el('td-amt').value); if(!toId || !amt || amt <= 0) return alert('Invalid input.'); if(amt > currentUser.currency) return alert('Not enough dots.'); if(toId === currentUser.user_id) return alert('Cannot send to yourself.'); const { data: receiver } = await sb.from('app_users').select('*').eq('user_id', toId).single(); if (!receiver) return alert('Receiver not found.'); const tax = amt * 0.1; const receiverGets = amt - tax; const treasury = await getTreasury(); const { data: updatedSender } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single(); await sb.from('app_users').update({ currency: receiver.currency + receiverGets }).eq('user_id', toId); await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) + tax }); currentUser = updatedSender; await addLog(`Sent ${amt} Ð to ID #${toId}`); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: toId, content: `💸 You received ${receiverGets.toFixed(2)} Ð from ${currentUser.username}!` }]); alert(`Success! Sent ${amt}Ð to ID #${toId}. They received ${receiverGets.toFixed(2)}Ð.`); closeModal(); el('tb-dots').click(); };
