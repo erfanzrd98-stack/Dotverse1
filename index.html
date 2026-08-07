@@ -152,7 +152,6 @@ function showMsg(t,ok){const e=el('auth-msg');e.textContent=t;e.className='auth-
 el('tab-login').onclick=()=>{el('tab-login').classList.add('active');el('tab-register').classList.remove('active');el('form-login').classList.remove('hidden');el('form-register').classList.add('hidden');showMsg('',true);};
 el('tab-register').onclick=()=>{el('tab-register').classList.add('active');el('tab-login').classList.remove('active');el('form-register').classList.remove('hidden');el('form-login').classList.add('hidden');showMsg('',true);};
 
-// FIXED: Robust Login Error Handling
 el('btn-register').onclick = async () => {
   const u=el('reg-username').value.trim(),p=el('reg-password').value,g=el('reg-gender').value,c=el('reg-city').value.trim();
   if(u.length < 3 || u.length > 14) return showMsg('Username must be 3-14 chars.');
@@ -160,13 +159,11 @@ el('btn-register').onclick = async () => {
   try {
     const { data, error } = await sb.from('app_users').insert([{ username: u, password: p, gender: g, city: c, currency: 10.00 }]).select().single();
     if (error) {
-      console.error("Reg Error:", error);
       if(error.message.includes('duplicate')) return showMsg('Username already exists.');
       return showMsg('DB Error: ' + error.message);
     }
     currentUser = data; startApp();
   } catch(e) {
-    console.error("Network Error:", e);
     showMsg('Network Error: Cannot connect to DB.');
   }
 };
@@ -177,14 +174,12 @@ el('btn-login').onclick = async () => {
   try {
     const { data, error } = await sb.from('app_users').select('*').eq('username', u).eq('password', p).single();
     if (error) {
-      console.error("Login Error:", error);
       if(error.message.includes('multiple')) return showMsg('Duplicate users found.');
       return showMsg('Invalid username or password.');
     }
     if (!data) return showMsg('User not found.');
     currentUser = data; startApp();
   } catch(e) {
-    console.error("Network Error:", e);
     showMsg('Network Error: Cannot connect to DB.');
   }
 };
@@ -281,7 +276,14 @@ async function appendMessage(m, isRealtime){
   if (m.user_id === currentUser.user_id) { uData = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, is_admin: currentUser.is_admin, is_system: currentUser.is_system, is_super_mod: currentUser.is_super_mod }; } 
   else if (!uData && m.user_id) { uData = await getUserData(m.user_id); }
   const userId = m.user_id; const username = uData ? uData.username : (m.username || 'Unknown');
-  const avatarHtml = uData && uData.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (uData && (uData.is_system || uData.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (userId === 4 ? '🤖' : (uData ? (uData.avatar_url || '🙂') : '🙂')));
+  
+  let avatarHtml = '🙂';
+  if (uData) {
+    if (uData.is_admin) avatarHtml = `<img src="${ADMIN_GIF}" class="avatar-img">`;
+    else if (uData.is_system || uData.is_super_mod) avatarHtml = `<img src="${SM_CROWN_URL}" class="avatar-img">`;
+    else if (userId === 4) avatarHtml = '🤖';
+    else avatarHtml = uData.avatar_url || '🙂';
+  }
   const nameColor = uData ? (uData.id_color || '#000') : '#000';
   div.className = 'msg';
   div.innerHTML = `<span class="avatar-emoji" onclick="showCtx(event,'${escapeHtml(username)}', '${userId}')">${avatarHtml}</span><div class="msg-body"><span class="msg-name" style="color:${nameColor}" onclick="showCtx(event,'${escapeHtml(username)}', '${userId}')">${escapeHtml(username)}</span><span class="msg-text">${escapeHtml(m.content)}</span></div>`;
@@ -337,7 +339,12 @@ function openPMPopup(sender, text, senderData) {
   const c = getPmColorScheme(senderData);
   const popupId = 'pm-' + Date.now() + Math.random().toString(36).substr(2,5);
   const popup = document.createElement('div'); popup.className = 'pm-popup-card'; popup.id = popupId; popup.style.border = '1px solid ' + c.card_border;
-  const senderAvatar = senderData.is_admin ? `<img src="${ADMIN_GIF}">` : ((senderData.is_system || senderData.is_super_mod) ? `<img src="${SM_CROWN_URL}">` : (senderData.user_id === 4 ? '🤖' : ''));
+  
+  let senderAvatar = '';
+  if (senderData.is_admin) senderAvatar = `<img src="${ADMIN_GIF}">`;
+  else if (senderData.is_system || senderData.is_super_mod) senderAvatar = `<img src="${SM_CROWN_URL}">`;
+  else if (senderData.user_id === 4) senderAvatar = '🤖';
+  
   let html = `<div class="pm-popup-header" style="background:${c.header_bg}; color:${c.header_color};"><span>${senderAvatar} ${escapeHtml(sender)}</span><div class="pm-popup-close" style="background:${c.close_bg}; color:${c.close_color};" onclick="document.getElementById('${popupId}').remove()">✕</div></div><div class="pm-popup-text" style="background:${c.body_bg}; color:${c.body_color};">${escapeHtml(text)}</div><div class="pm-popup-actions" id="actions-${popupId}"><button style="background:${c.footer_bg}; color:${c.footer_color}; border-color:${c.footer_border};" onclick="showReplyBox('${popupId}', '${escapeHtml(sender)}')">Reply</button><button style="background:${c.footer_bg}; color:${c.footer_color}; border-color:${c.footer_border};" onclick="viewProfile('${senderData.user_id}'); document.getElementById('${popupId}').remove();">About user</button></div><div class="pm-popup-reply-box hidden" id="reply-${popupId}"><input type="text" id="input-${popupId}" placeholder="Type reply..." /><button style="background:${c.footer_bg}; color:${c.footer_color}; border-color:${c.footer_border};" onclick="sendReply('${escapeHtml(sender)}', '${popupId}')">Send</button></div>`;
   popup.innerHTML = html; el('pm-popup-root').appendChild(popup);
 }
@@ -377,7 +384,14 @@ async function loadFriendsList() {
     const friendIds = friendsData.map(f => f.friend_id);
     const { data: friendsInfo } = await sb.from('app_users').select('username, user_id, avatar_url, is_admin, is_system, is_super_mod').in('user_id', friendIds);
     if (friendsInfo && friendsInfo.length > 0) {
-      friendsHtml = friendsInfo.map(f => `<div class="friend-row"><div class="friend-info"><span class="friend-av">${f.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((f.is_system || f.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (f.user_id === 4 ? '🤖' : (f.avatar_url||'🙂'))}</span><span class="friend-name">${escapeHtml(f.username)}</span></div><div class="friend-actions"><button class="act-btn danger" title="Remove Friend" onclick="removeFriend(${f.user_id}, '${escapeHtml(f.username)}')">➖</button><button class="act-btn primary" title="Send PM" onclick="startNewPM('${escapeHtml(f.username)}')">💬</button></div></div>`).join('');
+      friendsHtml = friendsInfo.map(f => {
+        let avHtml = '🙂';
+        if (f.is_admin) avHtml = `<img src="${ADMIN_GIF}" class="avatar-img">`;
+        else if (f.is_system || f.is_super_mod) avHtml = `<img src="${SM_CROWN_URL}" class="avatar-img">`;
+        else if (f.user_id === 4) avHtml = '🤖';
+        else avHtml = f.avatar_url||'🙂';
+        return `<div class="friend-row"><div class="friend-info"><span class="friend-av">${avHtml}</span><span class="friend-name">${escapeHtml(f.username)}</span></div><div class="friend-actions"><button class="act-btn danger" title="Remove Friend" onclick="removeFriend(${f.user_id}, '${escapeHtml(f.username)}')">➖</button><button class="act-btn primary" title="Send PM" onclick="startNewPM('${escapeHtml(f.username)}')">💬</button></div></div>`;
+      }).join('');
     }
   }
   friendsHtml += `<button class="btn" style="margin-top:16px;" onclick="startNewPM()">Start New PM</button>`; el('comm-friends').innerHTML = friendsHtml;
@@ -391,7 +405,15 @@ async function loadPMHistory() {
   if (userIds.size > 0) {
     const idsArray = Array.from(userIds);
     const { data: users } = await sb.from('app_users').select('user_id, username, avatar_url, is_admin, is_system, is_super_mod').in('user_id', idsArray);
-    if (users && users.length > 0) { historyHtml = users.map(u => `<div class="friend-row" style="cursor:pointer;" onclick="showChatHistory(${u.user_id}, '${escapeHtml(u.username)}')"><div class="friend-info"><span class="friend-av">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((u.is_system || u.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (u.avatar_url||'🙂'))}</span><span class="friend-name">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted)">Tap to chat</span></div>`).join(''); }
+    if (users && users.length > 0) { 
+      historyHtml = users.map(u => {
+        let avHtml = '🙂';
+        if (u.is_admin) avHtml = `<img src="${ADMIN_GIF}" class="avatar-img">`;
+        else if (u.is_system || u.is_super_mod) avHtml = `<img src="${SM_CROWN_URL}" class="avatar-img">`;
+        else avHtml = u.avatar_url||'🙂';
+        return `<div class="friend-row" style="cursor:pointer;" onclick="showChatHistory(${u.user_id}, '${escapeHtml(u.username)}')"><div class="friend-info"><span class="friend-av">${avHtml}</span><span class="friend-name">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted)">Tap to chat</span></div>`;
+      }).join(''); 
+    }
   }
   el('comm-history').innerHTML = historyHtml;
 }
@@ -430,16 +452,47 @@ el('tb-search').onclick = () => {
   loadLeaderboard();
 };
 window.switchSearchTab = (tab, btn) => { document.querySelectorAll('.pm-modal-tab').forEach(t => t.classList.remove('active')); btn.classList.add('active'); el('search-users').classList.toggle('hidden', tab !== 'users'); el('search-rooms').classList.toggle('hidden', tab !== 'rooms'); el('search-leaderboard').classList.toggle('hidden', tab !== 'leaderboard'); };
-window.searchUsers = async () => { const q = el('usr-query').value.trim(); if(!q) return; const num = parseInt(q); let query = sb.from('app_users').select('user_id, username, avatar_url, is_admin, is_system, is_super_mod, rating_points, id_color, is_verified').limit(10); if (!isNaN(num)) query = query.eq('user_id', num); else query = query.ilike('username', `%${q}%`); const { data, error } = await query; if (error || !data || data.length === 0) return el('usr-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No users found.</p>'; el('usr-results').innerHTML = data.map(u => `<div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;"><div class="friend-info"><span class="friend-av">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((u.is_system || u.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (u.user_id === 4 ? '🤖' : (u.avatar_url||'🙂')))</span><span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted)">#${u.user_id}</span></div>`).join(''); };
+window.searchUsers = async () => { 
+  const q = el('usr-query').value.trim(); if(!q) return; 
+  const num = parseInt(q); let query = sb.from('app_users').select('user_id, username, avatar_url, is_admin, is_system, is_super_mod, rating_points, id_color, is_verified').limit(10); 
+  if (!isNaN(num)) query = query.eq('user_id', num); else query = query.ilike('username', `%${q}%`); 
+  const { data, error } = await query; 
+  if (error || !data || data.length === 0) return el('usr-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No users found.</p>'; 
+  el('usr-results').innerHTML = data.map(u => {
+    let avHtml = '🙂';
+    if (u.is_admin) avHtml = `<img src="${ADMIN_GIF}" class="avatar-img">`;
+    else if (u.is_system || u.is_super_mod) avHtml = `<img src="${SM_CROWN_URL}" class="avatar-img">`;
+    else if (u.user_id === 4) avHtml = '🤖';
+    else avHtml = u.avatar_url||'🙂';
+    return `<div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;"><div class="friend-info"><span class="friend-av">${avHtml}</span><span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted)">#${u.user_id}</span></div>`;
+  }).join(''); 
+};
 window.searchRooms = async () => { const q = el('rm-query').value.trim(); if(!q) return; const num = parseInt(q); let query = sb.from('rooms').select('room_id, name, rating_points, is_vip').limit(10); if (!isNaN(num)) query = query.eq('room_id', num); else query = query.ilike('name', `%${q}%`); const { data, error } = await query; if (error || !data || data.length === 0) return el('rm-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No rooms found.</p>'; el('rm-results').innerHTML = data.map(r => `<div class="friend-row" onclick="joinRoom(${r.room_id})" style="cursor:pointer;"><div class="friend-info"><span class="friend-av" style="background:transparent;">${r.is_vip ? '⭐' : '🏠'}</span><span class="friend-name">${escapeHtml(r.name)}</span></div><span style="font-size:12px;color:var(--muted)">${r.rating_points} pts</span></div>`).join(''); };
-window.loadLeaderboard = async () => { const { data, error } = await sb.from('app_users').select('user_id, username, avatar_url, rating_points, is_admin, is_system, is_super_mod, id_color').neq('user_id', 1).neq('user_id', 3).neq('user_id', 4).order('rating_points', { ascending: false }).limit(20); if (error || !data) return el('lb-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">Error loading leaderboard.</p>'; el('lb-results').innerHTML = data.map((u, i) => `<div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;"><div class="friend-info" style="gap:5px;"><div class="lb-rank">${i + 1}</div><span class="friend-av" style="width:24px; height:24px; font-size:14px; margin-left:5px;">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((u.is_system || u.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (u.avatar_url||'🙂'))}</span><span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted); font-weight:bold;">${u.rating_points} pts</span></div>`).join(''); };
+window.loadLeaderboard = async () => { 
+  const { data, error } = await sb.from('app_users').select('user_id, username, avatar_url, rating_points, is_admin, is_system, is_super_mod, id_color').neq('user_id', 1).neq('user_id', 3).neq('user_id', 4).order('rating_points', { ascending: false }).limit(20); 
+  if (error || !data) return el('lb-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">Error loading leaderboard.</p>'; 
+  el('lb-results').innerHTML = data.map((u, i) => {
+    let avHtml = '🙂';
+    if (u.is_admin) avHtml = `<img src="${ADMIN_GIF}" class="avatar-img">`;
+    else if (u.is_system || u.is_super_mod) avHtml = `<img src="${SM_CROWN_URL}" class="avatar-img">`;
+    else avHtml = u.avatar_url||'🙂';
+    return `<div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;"><div class="friend-info" style="gap:5px;"><div class="lb-rank">${i + 1}</div><span class="friend-av" style="width:24px; height:24px; font-size:14px; margin-left:5px;">${avHtml}</span><span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted); font-weight:bold;">${u.rating_points} pts</span></div>`;
+  }).join(''); 
+};
 
 // --- View Profile Logic ---
 window.viewProfile = async (uid) => {
   closeCtx(); const { data: u, error } = await sb.from('app_users').select('*').eq('user_id', uid).single(); if (error || !u) return alert('User not found.');
   const { data: fr } = await sb.from('friends').select('id').eq('user_id', currentUser.user_id).eq('friend_id', uid).maybeSingle(); const isFriend = !!fr;
   const joinDate = new Date(u.created_at).toLocaleDateString(); const verifiedHtml = u.is_verified ? '<span style="color:#16a34a; font-weight:600;">✔ Verified</span>' : '<span style="color:#ef4444; font-weight:600;">Unverified</span>';
-  const vpCard = `<div style="text-align:center; margin-bottom:20px;"><div style="width:64px; height:64px; border-radius:50%; background:var(--dot-soft); display:inline-flex; align-items:center; justify-content:center; font-size:32px; overflow:hidden; margin-bottom:10px; border: 2px solid var(--line);">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((u.is_system || u.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (u.user_id === 4 ? '🤖' : (u.avatar_url || '🙂')))</div><div style="font-size:18px; font-weight:700; color:${u.id_color || '#000'};">${escapeHtml(u.username)}</div><div style="font-size:12px; color:var(--muted); margin-top:4px;">#${u.user_id} · ${verifiedHtml}</div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">Rating</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${u.rating_points} pts</span></div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">Gender</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${u.gender === 'female' ? 'Female' : 'Male'}</span></div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">City</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${escapeHtml(u.city || 'Unknown')}</span></div></div><div class="p-row" style="border-bottom:none;"><span class="p-label" style="width:40%; text-align:left;">Join Date</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${joinDate}</span></div></div><div style="display:flex; gap:8px; margin-top:20px;">${isFriend ? `<button class="p-btn" style="background:#fee2e2; color:#ef4444; flex:1;" onclick="removeFriend(${u.user_id}, '${escapeHtml(u.username)}'); closeModal();">➖ Remove Friend</button>` : `<button class="p-btn" style="background:#eef0ff; color:var(--dot); flex:1;" onclick="addFriend('${escapeHtml(u.username)}'); closeModal();">➕ Add Friend</button>`}<button class="p-btn" style="background:var(--dot); color:#fff; flex:1;" onclick="sendDotsPrompt('${u.user_id}'); closeModal();">🪙 Send Dots</button></div><button class="p-btn" style="background:#f4f5f7; color:var(--ink); margin-top:8px;" onclick="startNewPM('${escapeHtml(u.username)}'); closeModal();">💬 Send Private Message</button>`;
+  
+  let profileAvatar = '🙂';
+  if (u.is_admin) profileAvatar = `<img src="${ADMIN_GIF}" class="avatar-img">`;
+  else if (u.is_system || u.is_super_mod) profileAvatar = `<img src="${SM_CROWN_URL}" class="avatar-img">`;
+  else if (u.user_id === 4) profileAvatar = '🤖';
+  else profileAvatar = u.avatar_url || '🙂';
+
+  const vpCard = `<div style="text-align:center; margin-bottom:20px;"><div style="width:64px; height:64px; border-radius:50%; background:var(--dot-soft); display:inline-flex; align-items:center; justify-content:center; font-size:32px; overflow:hidden; margin-bottom:10px; border: 2px solid var(--line);">${profileAvatar}</div><div style="font-size:18px; font-weight:700; color:${u.id_color || '#000'};">${escapeHtml(u.username)}</div><div style="font-size:12px; color:var(--muted); margin-top:4px;">#${u.user_id} · ${verifiedHtml}</div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">Rating</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${u.rating_points} pts</span></div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">Gender</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${u.gender === 'female' ? 'Female' : 'Male'}</span></div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">City</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${escapeHtml(u.city || 'Unknown')}</span></div></div><div class="p-row" style="border-bottom:none;"><span class="p-label" style="width:40%; text-align:left;">Join Date</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${joinDate}</span></div></div><div style="display:flex; gap:8px; margin-top:20px;">${isFriend ? `<button class="p-btn" style="background:#fee2e2; color:#ef4444; flex:1;" onclick="removeFriend(${u.user_id}, '${escapeHtml(u.username)}'); closeModal();">➖ Remove Friend</button>` : `<button class="p-btn" style="background:#eef0ff; color:var(--dot); flex:1;" onclick="addFriend('${escapeHtml(u.username)}'); closeModal();">➕ Add Friend</button>`}<button class="p-btn" style="background:var(--dot); color:#fff; flex:1;" onclick="sendDotsPrompt('${u.user_id}'); closeModal();">🪙 Send Dots</button></div><button class="p-btn" style="background:#f4f5f7; color:var(--ink); margin-top:8px;" onclick="startNewPM('${escapeHtml(u.username)}'); closeModal();">💬 Send Private Message</button>`;
   openModal(`👤 User Profile`, vpCard);
 };
 
