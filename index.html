@@ -124,7 +124,7 @@
     <div id="broadcast-root" class="hidden"></div>
     <div id="room-header"><div class="rtitle"><span id="room-title">Lobby</span><span class="rscore" id="room-meta">ID: 1</span></div></div>
     <div id="messages"></div>
-    <div id="composer"><input type="text" id="msg-input" placeholder="Say something…" maxlength="500" /><button class="btn btn-sm" id="btn-send">Send</button></div>
+    <div id="composer"><input type="text" id="msg-input" placeholder="Say something… (Type 'Bot' or 'بات' to ask AI)" maxlength="500" /><button class="btn btn-sm" id="btn-send">Send</button></div>
   </div>
 </div>
 
@@ -139,7 +139,10 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const ADMIN_GIF = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/Dot.gif";
 const SM_CROWN_URL = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/SM.png";
 
-let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, banCheckInterval = null;
+// [مهم] آدرس Worker کلودفلر شما
+const AI_WORKER_URL = "https://dotverse-nova.erfanzrd98.workers.dev/"; 
+
+let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, banCheckInterval = null, lastAiRequest = 0;
 const userCache = {}; 
 const AVATARS = ["🦊","🦄","🐰","🐭","🍄","☢️","🌼","♥️","♠️","♣️","♦️","👺","👻","👽","⛄","💀","👤","🧑🏻‍🚀","🧒🏻","👩🏻","🍁","🍀","🌲","⚡","🐥","🛡️","♂️","♀️"];
 const COLORS = ["#000000", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280", "#f5780e"];
@@ -176,6 +179,7 @@ async function startApp(){
 function getPmColorScheme(user) {
   if (!user) return { card_border:'#6b7280', header_bg:'linear-gradient(#6b7280, #4b5563)', header_color:'#fff', close_bg:'#9ca3af', close_color:'#000', body_bg:'#e5e7eb', body_color:'#000', footer_bg:'linear-gradient(#6b7280, #4b5563)', footer_color:'#000', footer_border:'#6b7280' };
   if (user.is_admin) return { card_border:'#6b3200', header_bg:'linear-gradient(#a44600, #8c3d00)', header_color:'#fff', close_bg:'#ef6500', close_color:'#000', body_bg:'#ff7910', body_color:'#000', footer_bg:'linear-gradient(#a44600, #8c3d00)', footer_color:'#000', footer_border:'#a4600e' };
+  if (user.user_id === 4) return { card_border:'#00e5ff', header_bg:'linear-gradient(#00e5ff, #00b8d4)', header_color:'#004d40', close_bg:'#00b8d4', close_color:'#000', body_bg:'#00e5ff', body_color:'#004d40', footer_bg:'linear-gradient(#00e5ff, #00b8d4)', footer_color:'#004d40', footer_border:'#00e5ff' };
   if (user.user_id === 3 || user.is_super_mod) return { card_border:'#ca8a04', header_bg:'linear-gradient(#ca8a04, #facc15)', header_color:'#3a2f02', close_bg:'#fde047', close_color:'#3a2f02', body_bg:'#fde047', body_color:'#3a2f02', footer_bg:'linear-gradient(#ca8a04, #facc15)', footer_color:'#3a2f02', footer_border:'#ca8a04' };
   if (user.pm_color && user.pm_color_expires && new Date(user.pm_color_expires) > new Date()) {
     if (user.pm_color === 'black') return { card_border:'#000', header_bg:'linear-gradient(#3a3a3a, #000000)', header_color:'#fff', close_bg:'#5a5a5a', close_color:'#fff', body_bg:'#1a1a1a', body_color:'#fff', footer_bg:'linear-gradient(#3a3a3a, #000000)', footer_color:'#fff', footer_border:'#000' };
@@ -258,20 +262,42 @@ async function appendMessage(m, isRealtime){
   if (m.user_id === currentUser.user_id) { uData = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, is_admin: currentUser.is_admin, is_system: currentUser.is_system, is_super_mod: currentUser.is_super_mod }; } 
   else if (!uData && m.user_id) { uData = await getUserData(m.user_id); }
   const userId = m.user_id; const username = uData ? uData.username : (m.username || 'Unknown');
-  const avatarHtml = uData && uData.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (uData && (uData.is_system || uData.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (uData ? (uData.avatar_url || '🙂') : '🙂'));
+  const avatarHtml = uData && uData.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : (uData && (uData.is_system || uData.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (userId === 4 ? '🤖' : (uData ? (uData.avatar_url || '🙂') : '🙂')));
   const nameColor = uData ? (uData.id_color || '#000') : '#000';
   div.className = 'msg';
   div.innerHTML = `<span class="avatar-emoji" onclick="showCtx(event,'${escapeHtml(username)}', '${userId}')">${avatarHtml}</span><div class="msg-body"><span class="msg-name" style="color:${nameColor}" onclick="showCtx(event,'${escapeHtml(username)}', '${userId}')">${escapeHtml(username)}</span><span class="msg-text">${escapeHtml(m.content)}</span></div>`;
   w.appendChild(div); if (isRealtime) w.scrollTop = w.scrollHeight;
 }
 
-// FIXED: Reverted to manual rating with error handling
+async function handleAiPrompt(text) {
+  const now = Date.now();
+  if (now - lastAiRequest < 30000) return alert('Please wait 30 seconds before asking Nova again.');
+  lastAiRequest = now;
+  
+  try {
+    const res = await fetch(AI_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: text })
+    });
+    const data = await res.json();
+    if (data.error) return alert('Nova Error: ' + data.error);
+    return data.reply;
+  } catch (e) {
+    return alert('Failed to connect to Nova.');
+  }
+}
+
 el('btn-send').onclick = async () => {
   if (new Date(currentUser.banned_until) > new Date()) return alert('You are banned and cannot send messages.');
   const t = el('msg-input').value.trim(); if (!t) return; el('msg-input').value = '';
-  const { error: msgErr } = await sb.from('public_messages').insert([
-    { room_id: currentRoom, user_id: currentUser.user_id, username: currentUser.username, content: t }
-  ]);
+  
+  const lowerT = t.toLowerCase();
+  let isAi = false, promptText = t;
+  if (lowerT.startsWith('bot ')) { isAi = true; promptText = t.substring(4); }
+  else if (lowerT.startsWith('بات ')) { isAi = true; promptText = t.substring(4); }
+
+  const { error: msgErr } = await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: currentUser.user_id, username: currentUser.username, content: t }]);
   if (msgErr) return alert('Error sending message: ' + msgErr.message);
   
   let pointsToAdd = currentRoom === 2 ? 2 : 1;
@@ -280,6 +306,13 @@ el('btn-send').onclick = async () => {
   
   const { data: room } = await sb.from('rooms').select('rating_points').eq('room_id', currentRoom).single();
   if (room) { await sb.from('rooms').update({ rating_points: room.rating_points + 1 }).eq('room_id', currentRoom); el('room-meta').textContent = 'ID: ' + currentRoom + ' · ' + (room.rating_points + 1) + ' pts'; }
+
+  if (isAi) {
+    const aiReply = await handleAiPrompt(promptText);
+    if (aiReply) {
+      await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 4, username: 'Nova', content: aiReply }]);
+    }
+  }
 };
 el('msg-input').addEventListener('keydown', e => { if(e.key==='Enter') el('btn-send').click(); });
 
@@ -296,7 +329,7 @@ function openPMPopup(sender, text, senderData) {
   const c = getPmColorScheme(senderData);
   const popupId = 'pm-' + Date.now() + Math.random().toString(36).substr(2,5);
   const popup = document.createElement('div'); popup.className = 'pm-popup-card'; popup.id = popupId; popup.style.border = '1px solid ' + c.card_border;
-  const senderAvatar = senderData.is_admin ? `<img src="${ADMIN_GIF}">` : ((senderData.is_system || senderData.is_super_mod) ? `<img src="${SM_CROWN_URL}">` : '');
+  const senderAvatar = senderData.is_admin ? `<img src="${ADMIN_GIF}">` : ((senderData.is_system || senderData.is_super_mod) ? `<img src="${SM_CROWN_URL}">` : (senderData.user_id === 4 ? '🤖' : ''));
   let html = `<div class="pm-popup-header" style="background:${c.header_bg}; color:${c.header_color};"><span>${senderAvatar} ${escapeHtml(sender)}</span><div class="pm-popup-close" style="background:${c.close_bg}; color:${c.close_color};" onclick="document.getElementById('${popupId}').remove()">✕</div></div><div class="pm-popup-text" style="background:${c.body_bg}; color:${c.body_color};">${escapeHtml(text)}</div><div class="pm-popup-actions" id="actions-${popupId}"><button style="background:${c.footer_bg}; color:${c.footer_color}; border-color:${c.footer_border};" onclick="showReplyBox('${popupId}', '${escapeHtml(sender)}')">Reply</button><button style="background:${c.footer_bg}; color:${c.footer_color}; border-color:${c.footer_border};" onclick="viewProfile('${senderData.user_id}'); document.getElementById('${popupId}').remove();">About user</button></div><div class="pm-popup-reply-box hidden" id="reply-${popupId}"><input type="text" id="input-${popupId}" placeholder="Type reply..." /><button style="background:${c.footer_bg}; color:${c.footer_color}; border-color:${c.footer_border};" onclick="sendReply('${escapeHtml(sender)}', '${popupId}')">Send</button></div>`;
   popup.innerHTML = html; el('pm-popup-root').appendChild(popup);
 }
@@ -305,7 +338,6 @@ function showReplyBox(popupId, sender) {
   document.getElementById(`reply-${popupId}`).classList.remove('hidden');
   const inp = document.getElementById(`input-${popupId}`); inp.focus(); inp.addEventListener('keydown', e => { if(e.key==='Enter') sendReply(sender, popupId); });
 }
-// FIXED: Reverted to manual rating with error handling
 async function sendReply(sender, popupId) {
   const inp = document.getElementById(`input-${popupId}`); const t = inp.value.trim(); if(!t) return;
   const { data: receiver } = await sb.from('app_users').select('user_id').eq('username', sender).single();
@@ -314,6 +346,16 @@ async function sendReply(sender, popupId) {
     if (error) return alert('Error sending PM: ' + error.message);
     const { data: updatedUser } = await sb.from('app_users').update({ rating_points: currentUser.rating_points + 1 }).eq('user_id', currentUser.user_id).select().single();
     if (updatedUser) currentUser = updatedUser;
+    
+    const lowerT = t.toLowerCase();
+    if ((lowerT.startsWith('bot ') || lowerT.startsWith('بات ')) && sender === 'Nova') {
+      let promptText = lowerT.startsWith('bot ') ? t.substring(4) : t.substring(4);
+      const aiReply = await handleAiPrompt(promptText);
+      if (aiReply) {
+        await sb.from('private_messages').insert([{ sender_id: 4, receiver_id: currentUser.user_id, content: aiReply }]);
+      }
+    }
+    
     document.getElementById(popupId).remove(); 
   } else { alert('User not found'); }
 }
@@ -331,7 +373,7 @@ async function loadFriendsList() {
     const friendIds = friendsData.map(f => f.friend_id);
     const { data: friendsInfo } = await sb.from('app_users').select('username, user_id, avatar_url, is_admin, is_system, is_super_mod').in('user_id', friendIds);
     if (friendsInfo && friendsInfo.length > 0) {
-      friendsHtml = friendsInfo.map(f => `<div class="friend-row"><div class="friend-info"><span class="friend-av">${f.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((f.is_system || f.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (f.avatar_url||'🙂'))}</span><span class="friend-name">${escapeHtml(f.username)}</span></div><div class="friend-actions"><button class="act-btn danger" title="Remove Friend" onclick="removeFriend(${f.user_id}, '${escapeHtml(f.username)}')">➖</button><button class="act-btn primary" title="Send PM" onclick="startNewPM('${escapeHtml(f.username)}')">💬</button></div></div>`).join('');
+      friendsHtml = friendsInfo.map(f => `<div class="friend-row"><div class="friend-info"><span class="friend-av">${f.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((f.is_system || f.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (f.user_id === 4 ? '🤖' : (f.avatar_url||'🙂'))}</span><span class="friend-name">${escapeHtml(f.username)}</span></div><div class="friend-actions"><button class="act-btn danger" title="Remove Friend" onclick="removeFriend(${f.user_id}, '${escapeHtml(f.username)}')">➖</button><button class="act-btn primary" title="Send PM" onclick="startNewPM('${escapeHtml(f.username)}')">💬</button></div></div>`).join('');
     }
   }
   friendsHtml += `<button class="btn" style="margin-top:16px;" onclick="startNewPM()">Start New PM</button>`; el('comm-friends').innerHTML = friendsHtml;
@@ -340,7 +382,7 @@ async function loadPMHistory() {
   const { data: sent } = await sb.from('private_messages').select('receiver_id').eq('sender_id', currentUser.user_id).limit(50);
   const { data: received } = await sb.from('private_messages').select('sender_id').eq('receiver_id', currentUser.user_id).limit(50);
   const userIds = new Set(); sent.forEach(m => userIds.add(m.receiver_id)); received.forEach(m => userIds.add(m.sender_id));
-  userIds.delete(currentUser.user_id); userIds.delete(1); userIds.delete(3);
+  userIds.delete(currentUser.user_id); userIds.delete(1); userIds.delete(3); userIds.delete(4);
   let historyHtml = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No history yet.</p>';
   if (userIds.size > 0) {
     const idsArray = Array.from(userIds);
@@ -359,13 +401,21 @@ window.showChatHistory = async (otherUserId, otherUsername) => {
   openModal(`Chat with ${escapeHtml(otherUsername)}`, historyHtml);
   const view = document.querySelector('.pm-history-view'); if(view) view.scrollTop = view.scrollHeight;
 };
-// FIXED: Reverted to manual rating with error handling
 window.sendPMFromHistory = async (otherUserId, otherUsername) => { 
   const inp = document.getElementById('pm-history-input'); const t = inp.value.trim(); if(!t) return; 
   const { error } = await sb.from('private_messages').insert([{ sender_id: currentUser.user_id, receiver_id: otherUserId, content: t }]);
   if (error) return alert('Error sending PM: ' + error.message);
   const { data: updatedUser } = await sb.from('app_users').update({ rating_points: currentUser.rating_points + 1 }).eq('user_id', currentUser.user_id).select().single();
   if (updatedUser) currentUser = updatedUser;
+
+  const lowerT = t.toLowerCase();
+  if ((lowerT.startsWith('bot ') || lowerT.startsWith('بات ')) && otherUsername === 'Nova') {
+    let promptText = lowerT.startsWith('bot ') ? t.substring(4) : t.substring(4);
+    const aiReply = await handleAiPrompt(promptText);
+    if (aiReply) {
+      await sb.from('private_messages').insert([{ sender_id: 4, receiver_id: currentUser.user_id, content: aiReply }]);
+    }
+  }
   showChatHistory(otherUserId, otherUsername); 
 };
 window.sendReport = async () => { const t = el('report-text').value.trim(); if(!t) return alert('Please write a message first.'); await sb.from('private_messages').insert([{ sender_id: currentUser.user_id, receiver_id: 1, content: '🚨 REPORT: ' + t }]); el('report-text').value = ''; alert('Report sent to Admin!'); };
@@ -379,16 +429,16 @@ el('tb-search').onclick = () => {
   loadLeaderboard();
 };
 window.switchSearchTab = (tab, btn) => { document.querySelectorAll('.pm-modal-tab').forEach(t => t.classList.remove('active')); btn.classList.add('active'); el('search-users').classList.toggle('hidden', tab !== 'users'); el('search-rooms').classList.toggle('hidden', tab !== 'rooms'); el('search-leaderboard').classList.toggle('hidden', tab !== 'leaderboard'); };
-window.searchUsers = async () => { const q = el('usr-query').value.trim(); if(!q) return; const num = parseInt(q); let query = sb.from('app_users').select('user_id, username, avatar_url, is_admin, is_system, is_super_mod, rating_points, id_color, is_verified').limit(10); if (!isNaN(num)) query = query.eq('user_id', num); else query = query.ilike('username', `%${q}%`); const { data, error } = await query; if (error || !data || data.length === 0) return el('usr-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No users found.</p>'; el('usr-results').innerHTML = data.map(u => `<div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;"><div class="friend-info"><span class="friend-av">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((u.is_system || u.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (u.avatar_url||'🙂'))}</span><span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted)">#${u.user_id}</span></div>`).join(''); };
+window.searchUsers = async () => { const q = el('usr-query').value.trim(); if(!q) return; const num = parseInt(q); let query = sb.from('app_users').select('user_id, username, avatar_url, is_admin, is_system, is_super_mod, rating_points, id_color, is_verified').limit(10); if (!isNaN(num)) query = query.eq('user_id', num); else query = query.ilike('username', `%${q}%`); const { data, error } = await query; if (error || !data || data.length === 0) return el('usr-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No users found.</p>'; el('usr-results').innerHTML = data.map(u => `<div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;"><div class="friend-info"><span class="friend-av">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((u.is_system || u.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (u.user_id === 4 ? '🤖' : (u.avatar_url||'🙂')))</span><span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted)">#${u.user_id}</span></div>`).join(''); };
 window.searchRooms = async () => { const q = el('rm-query').value.trim(); if(!q) return; const num = parseInt(q); let query = sb.from('rooms').select('room_id, name, rating_points, is_vip').limit(10); if (!isNaN(num)) query = query.eq('room_id', num); else query = query.ilike('name', `%${q}%`); const { data, error } = await query; if (error || !data || data.length === 0) return el('rm-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No rooms found.</p>'; el('rm-results').innerHTML = data.map(r => `<div class="friend-row" onclick="joinRoom(${r.room_id})" style="cursor:pointer;"><div class="friend-info"><span class="friend-av" style="background:transparent;">${r.is_vip ? '⭐' : '🏠'}</span><span class="friend-name">${escapeHtml(r.name)}</span></div><span style="font-size:12px;color:var(--muted)">${r.rating_points} pts</span></div>`).join(''); };
-window.loadLeaderboard = async () => { const { data, error } = await sb.from('app_users').select('user_id, username, avatar_url, rating_points, is_admin, is_system, is_super_mod, id_color').neq('user_id', 1).neq('user_id', 3).order('rating_points', { ascending: false }).limit(20); if (error || !data) return el('lb-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">Error loading leaderboard.</p>'; el('lb-results').innerHTML = data.map((u, i) => `<div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;"><div class="friend-info" style="gap:5px;"><div class="lb-rank">${i + 1}</div><span class="friend-av" style="width:24px; height:24px; font-size:14px; margin-left:5px;">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((u.is_system || u.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (u.avatar_url||'🙂'))}</span><span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted); font-weight:bold;">${u.rating_points} pts</span></div>`).join(''); };
+window.loadLeaderboard = async () => { const { data, error } = await sb.from('app_users').select('user_id, username, avatar_url, rating_points, is_admin, is_system, is_super_mod, id_color').neq('user_id', 1).neq('user_id', 3).neq('user_id', 4).order('rating_points', { ascending: false }).limit(20); if (error || !data) return el('lb-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">Error loading leaderboard.</p>'; el('lb-results').innerHTML = data.map((u, i) => `<div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;"><div class="friend-info" style="gap:5px;"><div class="lb-rank">${i + 1}</div><span class="friend-av" style="width:24px; height:24px; font-size:14px; margin-left:5px;">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((u.is_system || u.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (u.avatar_url||'🙂'))}</span><span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted); font-weight:bold;">${u.rating_points} pts</span></div>`).join(''); };
 
 // --- View Profile Logic ---
 window.viewProfile = async (uid) => {
   closeCtx(); const { data: u, error } = await sb.from('app_users').select('*').eq('user_id', uid).single(); if (error || !u) return alert('User not found.');
   const { data: fr } = await sb.from('friends').select('id').eq('user_id', currentUser.user_id).eq('friend_id', uid).maybeSingle(); const isFriend = !!fr;
   const joinDate = new Date(u.created_at).toLocaleDateString(); const verifiedHtml = u.is_verified ? '<span style="color:#16a34a; font-weight:600;">✔ Verified</span>' : '<span style="color:#ef4444; font-weight:600;">Unverified</span>';
-  const vpCard = `<div style="text-align:center; margin-bottom:20px;"><div style="width:64px; height:64px; border-radius:50%; background:var(--dot-soft); display:inline-flex; align-items:center; justify-content:center; font-size:32px; overflow:hidden; margin-bottom:10px; border: 2px solid var(--line);">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((u.is_system || u.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (u.avatar_url || '🙂'))}</div><div style="font-size:18px; font-weight:700; color:${u.id_color || '#000'};">${escapeHtml(u.username)}</div><div style="font-size:12px; color:var(--muted); margin-top:4px;">#${u.user_id} · ${verifiedHtml}</div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">Rating</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${u.rating_points} pts</span></div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">Gender</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${u.gender === 'female' ? 'Female' : 'Male'}</span></div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">City</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${escapeHtml(u.city || 'Unknown')}</span></div></div><div class="p-row" style="border-bottom:none;"><span class="p-label" style="width:40%; text-align:left;">Join Date</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${joinDate}</span></div></div><div style="display:flex; gap:8px; margin-top:20px;">${isFriend ? `<button class="p-btn" style="background:#fee2e2; color:#ef4444; flex:1;" onclick="removeFriend(${u.user_id}, '${escapeHtml(u.username)}'); closeModal();">➖ Remove Friend</button>` : `<button class="p-btn" style="background:#eef0ff; color:var(--dot); flex:1;" onclick="addFriend('${escapeHtml(u.username)}'); closeModal();">➕ Add Friend</button>`}<button class="p-btn" style="background:var(--dot); color:#fff; flex:1;" onclick="sendDotsPrompt('${u.user_id}'); closeModal();">🪙 Send Dots</button></div><button class="p-btn" style="background:#f4f5f7; color:var(--ink); margin-top:8px;" onclick="startNewPM('${escapeHtml(u.username)}'); closeModal();">💬 Send Private Message</button>`;
+  const vpCard = `<div style="text-align:center; margin-bottom:20px;"><div style="width:64px; height:64px; border-radius:50%; background:var(--dot-soft); display:inline-flex; align-items:center; justify-content:center; font-size:32px; overflow:hidden; margin-bottom:10px; border: 2px solid var(--line);">${u.is_admin ? `<img src="${ADMIN_GIF}" class="avatar-img">` : ((u.is_system || u.is_super_mod) ? `<img src="${SM_CROWN_URL}" class="avatar-img">` : (u.user_id === 4 ? '🤖' : (u.avatar_url || '🙂')))</div><div style="font-size:18px; font-weight:700; color:${u.id_color || '#000'};">${escapeHtml(u.username)}</div><div style="font-size:12px; color:var(--muted); margin-top:4px;">#${u.user_id} · ${verifiedHtml}</div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">Rating</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${u.rating_points} pts</span></div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">Gender</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${u.gender === 'female' ? 'Female' : 'Male'}</span></div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">City</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${escapeHtml(u.city || 'Unknown')}</span></div></div><div class="p-row" style="border-bottom:none;"><span class="p-label" style="width:40%; text-align:left;">Join Date</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${joinDate}</span></div></div><div style="display:flex; gap:8px; margin-top:20px;">${isFriend ? `<button class="p-btn" style="background:#fee2e2; color:#ef4444; flex:1;" onclick="removeFriend(${u.user_id}, '${escapeHtml(u.username)}'); closeModal();">➖ Remove Friend</button>` : `<button class="p-btn" style="background:#eef0ff; color:var(--dot); flex:1;" onclick="addFriend('${escapeHtml(u.username)}'); closeModal();">➕ Add Friend</button>`}<button class="p-btn" style="background:var(--dot); color:#fff; flex:1;" onclick="sendDotsPrompt('${u.user_id}'); closeModal();">🪙 Send Dots</button></div><button class="p-btn" style="background:#f4f5f7; color:var(--ink); margin-top:8px;" onclick="startNewPM('${escapeHtml(u.username)}'); closeModal();">💬 Send Private Message</button>`;
   openModal(`👤 User Profile`, vpCard);
 };
 
