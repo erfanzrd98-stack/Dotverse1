@@ -140,7 +140,7 @@ const ADMIN_GIF = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/pu
 const SM_CROWN_URL = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/SM.png";
 const AI_WORKER_URL = "https://dotverse-nova.erfanzrd98.workers.dev/"; 
 
-let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, banCheckInterval = null, lastAiRequest = 0, novaAutoInterval = null;
+let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, banCheckInterval = null, lastAiRequest = 0, novaAutoInterval = null, presenceSubscription = null;
 const userCache = {}; 
 const AVATARS = ["🦊","🦄","🐰","🐭","🍄","☢️","🌼","♥️","♠️","♣️","♦️","👺","👻","👽","⛄","💀","👤","🧑🏻‍🚀","🧒🏻","👩🏻","🍁","🍀","🌲","⚡","🐥","🛡️","♂️","♀️"];
 const COLORS = ["#000000", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280", "#f5780e"];
@@ -177,7 +177,15 @@ el('btn-login').onclick = async () => {
 async function startApp(){
   el('auth-screen').classList.add('hidden'); el('shell').classList.remove('hidden');
   if(currentUser.is_admin || currentUser.is_super_mod) el('tb-admin').classList.remove('hidden');
-  joinRoom(1); subscribeToPMs(); subscribeToBroadcasts(); startBanCheck(); startNovaAutoMessage();
+  joinRoom(1); subscribeToPMs(); subscribeToBroadcasts(); startBanCheck(); startNovaAutoMessage(); subscribeToPresence();
+  window.addEventListener('beforeunload', handleUnload);
+}
+
+async function handleUnload() {
+  if (currentUser) {
+    await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 3, username: 'SystemBot', content: `↩️ ${currentUser.username} left the room` }]);
+    await sb.from('user_presence').delete().eq('user_id', currentUser.user_id);
+  }
 }
 
 function getPmColorScheme(user) {
@@ -210,12 +218,25 @@ function getRatingTier(score) {
   return 'Galaxy';
 }
 
+async function checkRatingTierChange(oldScore, newScore) {
+  const oldTier = getRatingTier(oldScore);
+  const newTier = getRatingTier(newScore);
+  if (oldTier !== newTier) {
+    await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: currentUser.user_id, content: `🎉 Congratulations ${currentUser.username}! You have reached the ${newTier} tier!` }]);
+  }
+}
+
 async function addRating(userId, points) {
   try {
     const { data: u } = await sb.from('app_users').select('rating_points').eq('user_id', userId).single();
     if (u) {
-      await sb.from('app_users').update({ rating_points: u.rating_points + points }).eq('user_id', userId);
-      if (userId === currentUser.user_id) currentUser.rating_points = u.rating_points + points;
+      const oldScore = u.rating_points || 0;
+      const newScore = oldScore + points;
+      await sb.from('app_users').update({ rating_points: newScore }).eq('user_id', userId);
+      if (userId === currentUser.user_id) {
+        currentUser.rating_points = newScore;
+        await checkRatingTierChange(oldScore, newScore);
+      }
     }
   } catch(e) { console.error('Rating update error', e); }
 }
@@ -247,6 +268,25 @@ function showBroadcast(b) {
   setTimeout(() => { root.classList.add('hidden'); root.innerHTML = ''; }, expires.getTime() - now.getTime());
 }
 
+// --- Presence Logic ---
+function subscribeToPresence() {
+  if (presenceSubscription) sb.removeChannel(presenceSubscription);
+  presenceSubscription = sb.channel('user_presence')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_presence' }, payload => handlePresenceChange(payload.new, 'join'))
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'user_presence' }, payload => handlePresenceChange(payload.old, 'leave'))
+    .subscribe();
+}
+async function handlePresenceChange(record, action) {
+  if (record.user_id === currentUser.user_id) return; // Don't notify self
+  if (record.room_id !== currentRoom) return; // Only notify for current room
+
+  const { data: u } = await sb.from('app_users').select('username').eq('user_id', record.user_id).single();
+  if (u) {
+    const msg = action === 'join' ? `➡️ ${u.username} entered the room` : `↩️ ${u.username} left the room`;
+    await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 3, username: 'SystemBot', content: msg }]);
+  }
+}
+
 async function joinRoom(id){
   closeModal();
   if (id === 2 && currentUser.user_id !== 1 && currentUser.user_id !== 3) {
@@ -256,10 +296,23 @@ async function joinRoom(id){
     const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - fee }).eq('user_id', currentUser.user_id).select().single();
     currentUser = updatedUser; await updateTreasury({ fund_balance: parseFloat(settings.fund_balance) + fee }); alert('Welcome to VIP Room!');
   }
+
+  // Update presence: Leave old room, join new room
+  await sb.from('user_presence').upsert([{ user_id: currentUser.user_id, room_id: id }]);
+  
+  // Notify old room if leaving
+  if (currentRoom !== id) {
+    await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 3, username: 'SystemBot', content: `↩️ ${currentUser.username} left the room` }]);
+  }
+
   currentRoom = id; if (msgSubscription) await sb.removeChannel(msgSubscription);
   const { data: room } = await sb.from('rooms').select('*').eq('room_id', id).single();
   if (room) { el('room-title').textContent = room.name; el('room-meta').textContent = 'ID: ' + room.room_id + ' · ' + room.rating_points + ' pts'; }
   await loadMessages();
+  
+  // Notify new room
+  await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 3, username: 'SystemBot', content: `➡️ ${currentUser.username} entered the room` }]);
+
   const isBanned = new Date(currentUser.banned_until) > new Date();
   if (id === 3 && isBanned) {
     el('composer').classList.add('hidden'); const banDiv = document.createElement('div'); banDiv.id = 'ban-banner';
@@ -267,6 +320,7 @@ async function joinRoom(id){
     banDiv.innerHTML = `You are banned! Pay ${currentUser.ban_fine} Ð fine to leave.<br><button class="btn btn-danger" style="margin-top:15px;" onclick="payFine()">Pay Fine</button>`;
     el('main').appendChild(banDiv);
   } else { el('composer').classList.remove('hidden'); const banBanner = el('ban-banner'); if(banBanner) banBanner.remove(); }
+  
   msgSubscription = sb.channel('public:public_messages:room_id=eq.' + id).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'public_messages', filter: `room_id=eq.${id}` }, payload => appendMessage(payload.new, true)).subscribe();
 }
 async function loadMessages(){
@@ -282,6 +336,16 @@ async function getUserData(userId) {
 async function appendMessage(m, isRealtime){
   const w = el('messages'); const div = document.createElement('div');
   if (!m.user_id) { div.className = 'sys-msg'; div.textContent = m.content; w.appendChild(div); if (isRealtime) w.scrollTop = w.scrollHeight; return; }
+  
+  // Hide SystemBot join/leave messages for the user themselves to avoid spam
+  if (m.user_id === 3 && m.username === 'SystemBot' && (m.content.includes('entered the room') || m.content.includes('left the room'))) {
+    const mentionedUser = m.content.split(' ')[1];
+    if (mentionedUser === currentUser.username) {
+      if (isRealtime) w.scrollTop = w.scrollHeight;
+      return; 
+    }
+  }
+
   let uData = m.sender || m.app_users;
   if (m.user_id === currentUser.user_id) { uData = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, is_admin: currentUser.is_admin, is_system: currentUser.is_system, is_super_mod: currentUser.is_super_mod }; } 
   else if (!uData && m.user_id) { uData = await getUserData(m.user_id); }
@@ -303,7 +367,7 @@ async function appendMessage(m, isRealtime){
 // --- Nova AI Logic ---
 async function handleAiPrompt(text) {
   const now = Date.now();
-  if (now - lastAiRequest < 5000) return alert('Please wait 5 seconds before asking Nova again.'); // 5 sec limit
+  if (now - lastAiRequest < 5000) return alert('Please wait 5 seconds before asking Nova again.');
   lastAiRequest = now;
   try {
     const res = await fetch(AI_WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text }) });
@@ -315,7 +379,6 @@ async function handleAiPrompt(text) {
 
 function startNovaAutoMessage() {
   if (novaAutoInterval) clearInterval(novaAutoInterval);
-  // Check every 1 minute if 30 minutes have passed since last Nova message
   novaAutoInterval = setInterval(async () => {
     try {
       const { data: lastMsg } = await sb.from('public_messages')
@@ -341,7 +404,7 @@ function startNovaAutoMessage() {
         }
       }
     } catch (e) { console.error('Nova auto error', e); }
-  }, 60000); // Run check every 60s
+  }, 60000);
 }
 
 el('btn-send').onclick = async () => {
