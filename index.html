@@ -124,7 +124,7 @@
     <div id="broadcast-root" class="hidden"></div>
     <div id="room-header"><div class="rtitle"><span id="room-title">Lobby</span><span class="rscore" id="room-meta">ID: 1</span></div></div>
     <div id="messages"></div>
-    <div id="composer"><input type="text" id="msg-input" placeholder="Say something… (Type 'Bot' or 'بات' to ask AI)" maxlength="500" /><button class="btn btn-sm" id="btn-send">Send</button></div>
+    <div id="composer"><input type="text" id="msg-input" placeholder="Say something… (Type 'Bot' or 'بات' to ask Nova)" maxlength="500" /><button class="btn btn-sm" id="btn-send">Send</button></div>
   </div>
 </div>
 
@@ -140,7 +140,7 @@ const ADMIN_GIF = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/pu
 const SM_CROWN_URL = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/SM.png";
 const AI_WORKER_URL = "https://dotverse-nova.erfanzrd98.workers.dev/"; 
 
-let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, banCheckInterval = null, lastAiRequest = 0;
+let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, banCheckInterval = null, lastAiRequest = 0, novaAutoInterval = null;
 const userCache = {}; 
 const AVATARS = ["🦊","🦄","🐰","🐭","🍄","☢️","🌼","♥️","♠️","♣️","♦️","👺","👻","👽","⛄","💀","👤","🧑🏻‍🚀","🧒🏻","👩🏻","🍁","🍀","🌲","⚡","🐥","🛡️","♂️","♀️"];
 const COLORS = ["#000000", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280", "#f5780e"];
@@ -158,10 +158,7 @@ el('btn-register').onclick = async () => {
   if(p.length < 3 || p.length > 14) return showMsg('Password must be 3-14 chars.');
   try {
     const { data, error } = await sb.from('app_users').insert([{ username: u, password: p, gender: g, city: c, currency: 10.00 }]).select().single();
-    if (error) {
-      if(error.message.includes('duplicate')) return showMsg('Username already exists.');
-      return showMsg('DB Error: ' + error.message);
-    }
+    if (error) { if(error.message.includes('duplicate')) return showMsg('Username already exists.'); return showMsg('DB Error: ' + error.message); }
     currentUser = data; startApp();
   } catch(e) { showMsg('Network Error: Cannot connect to DB.'); }
 };
@@ -171,10 +168,7 @@ el('btn-login').onclick = async () => {
   if(!u||!p) return showMsg('Enter credentials.');
   try {
     const { data, error } = await sb.from('app_users').select('*').eq('username', u).eq('password', p).single();
-    if (error) {
-      if(error.message.includes('multiple')) return showMsg('Duplicate users found.');
-      return showMsg('Invalid username or password.');
-    }
+    if (error) { if(error.message.includes('multiple')) return showMsg('Duplicate users found.'); return showMsg('Invalid username or password.'); }
     if (!data) return showMsg('User not found.');
     currentUser = data; startApp();
   } catch(e) { showMsg('Network Error: Cannot connect to DB.'); }
@@ -183,7 +177,7 @@ el('btn-login').onclick = async () => {
 async function startApp(){
   el('auth-screen').classList.add('hidden'); el('shell').classList.remove('hidden');
   if(currentUser.is_admin || currentUser.is_super_mod) el('tb-admin').classList.remove('hidden');
-  joinRoom(1); subscribeToPMs(); subscribeToBroadcasts(); startBanCheck();
+  joinRoom(1); subscribeToPMs(); subscribeToBroadcasts(); startBanCheck(); startNovaAutoMessage();
 }
 
 function getPmColorScheme(user) {
@@ -306,9 +300,10 @@ async function appendMessage(m, isRealtime){
   w.appendChild(div); if (isRealtime) w.scrollTop = w.scrollHeight;
 }
 
+// --- Nova AI Logic ---
 async function handleAiPrompt(text) {
   const now = Date.now();
-  if (now - lastAiRequest < 30000) return alert('Please wait 30 seconds before asking Nova again.');
+  if (now - lastAiRequest < 5000) return alert('Please wait 5 seconds before asking Nova again.'); // 5 sec limit
   lastAiRequest = now;
   try {
     const res = await fetch(AI_WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: text }) });
@@ -316,6 +311,37 @@ async function handleAiPrompt(text) {
     if (data.error) return alert('Nova Error: ' + data.error);
     return data.reply;
   } catch (e) { return alert('Failed to connect to Nova.'); }
+}
+
+function startNovaAutoMessage() {
+  if (novaAutoInterval) clearInterval(novaAutoInterval);
+  // Check every 1 minute if 30 minutes have passed since last Nova message
+  novaAutoInterval = setInterval(async () => {
+    try {
+      const { data: lastMsg } = await sb.from('public_messages')
+        .select('created_at')
+        .eq('user_id', 4)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      const thirtyMins = 30 * 60 * 1000;
+      const now = Date.now();
+      
+      if (!lastMsg || (now - new Date(lastMsg.created_at).getTime() > thirtyMins)) {
+        const res = await fetch(AI_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: "Generate a short, interesting, random thought, fact, or philosophical question to start a conversation in the chat room. Just output the text, nothing else." })
+        });
+        const data = await res.json();
+        if (data.reply) {
+          await sb.from('public_messages').insert([{ room_id: 1, user_id: 4, username: 'Nova', content: data.reply }]);
+          await addRating(4, 1);
+        }
+      }
+    } catch (e) { console.error('Nova auto error', e); }
+  }, 60000); // Run check every 60s
 }
 
 el('btn-send').onclick = async () => {
@@ -338,7 +364,7 @@ el('btn-send').onclick = async () => {
     const aiReply = await handleAiPrompt(promptText);
     if (aiReply) { 
       await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 4, username: 'Nova', content: aiReply }]);
-      await addRating(4, 1); // Nova gets 1 point for AI reply
+      await addRating(4, 1); 
     }
   }
 };
@@ -377,14 +403,14 @@ async function sendReply(sender, popupId) {
   if(receiver) {
     const { error } = await sb.from('private_messages').insert([{ sender_id: currentUser.user_id, receiver_id: receiver.user_id, content: t }]);
     if (error) return alert('Error sending PM: ' + error.message);
-    await addRating(currentUser.user_id, 1); // Rating for sending PM
+    await addRating(currentUser.user_id, 1);
     const lowerT = t.toLowerCase();
     if ((lowerT.startsWith('bot ') || lowerT.startsWith('بات ')) && sender === 'Nova') {
       let promptText = lowerT.startsWith('bot ') ? t.substring(4) : t.substring(4);
       const aiReply = await handleAiPrompt(promptText);
       if (aiReply) { 
         await sb.from('private_messages').insert([{ sender_id: 4, receiver_id: currentUser.user_id, content: aiReply }]);
-        await addRating(4, 1); // Nova gets rating for PM reply
+        await addRating(4, 1);
       }
     }
     document.getElementById(popupId).remove(); 
@@ -451,14 +477,14 @@ window.sendPMFromHistory = async (otherUserId, otherUsername) => {
   const inp = document.getElementById('pm-history-input'); const t = inp.value.trim(); if(!t) return; 
   const { error } = await sb.from('private_messages').insert([{ sender_id: currentUser.user_id, receiver_id: otherUserId, content: t }]);
   if (error) return alert('Error sending PM: ' + error.message);
-  await addRating(currentUser.user_id, 1); // Rating for sending PM
+  await addRating(currentUser.user_id, 1);
   const lowerT = t.toLowerCase();
   if ((lowerT.startsWith('bot ') || lowerT.startsWith('بات ')) && otherUsername === 'Nova') {
     let promptText = lowerT.startsWith('bot ') ? t.substring(4) : t.substring(4);
     const aiReply = await handleAiPrompt(promptText);
     if (aiReply) { 
       await sb.from('private_messages').insert([{ sender_id: 4, receiver_id: currentUser.user_id, content: aiReply }]);
-      await addRating(4, 1); // Nova gets rating for PM reply
+      await addRating(4, 1);
     }
   }
   showChatHistory(otherUserId, otherUsername); 
@@ -527,7 +553,7 @@ window.payFine = async () => {
   const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - currentUser.ban_fine, banned_until: new Date().toISOString(), ban_fine: 0, current_room_id: 1 }).eq('user_id', currentUser.user_id).select().single();
   await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(currentUser.ban_fine) });
   await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: currentUser.user_id, content: '✅ You have paid the fine and are now free.' }]);
-  await addRating(3, 1); // SystemBot gets rating
+  await addRating(3, 1);
   currentUser = updatedUser; joinRoom(1);
 };
 
@@ -550,7 +576,7 @@ window.buyRoomPoints = async (pts, price) => { if (currentUser.currency < price)
 window.buyPMColor = async (id, name, price) => { if (currentUser.currency < price) return alert('Not enough dots.'); const expiresAt = new Date(Date.now() + 86400000).toISOString(); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - price, pm_color: id, pm_color_expires: expiresAt }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; await addLog(`Shop: Bought ${name} PM Color for ${price} Ð`); alert(`Successfully bought ${name} PM color for 24 hours!`); };
 window.openAssetsModal = async () => { const { data: assets } = await sb.from('user_inventory').select('*, gifts(name, image_url, price, sell_price)').eq('user_id', currentUser.user_id); if (!assets || assets.length === 0) return openModal('🎒 Assets', '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No assets yet.</p>'); openModal('🎒 Assets', assets.map(a => `<div class="friend-row" style="cursor:default;"><span class="friend-av" style="background:transparent; font-size:24px;">${a.gifts.image_url}</span><div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${escapeHtml(a.gifts.name)} (x${a.quantity})</div><div style="font-size:11px; color:var(--muted);">Sell Value: ${a.gifts.sell_price} Ð</div></div><div style="display:flex; gap:5px;"><button class="btn-sm" onclick="sellGift('${a.id}', '${a.gift_id}', ${a.quantity})">Sell</button><button class="btn-sm" style="background:var(--dot); color:#fff;" onclick="sendGiftPrompt('${a.gift_id}', '${escapeHtml(a.gifts.name)}')">Send</button></div></div>`).join('')); };
 window.sellGift = async (inventoryId, giftId, currentQty) => { const { data: g } = await sb.from('gifts').select('*').eq('id', giftId).single(); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency + parseFloat(g.sell_price) }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; await sb.from('gifts').update({ stock: g.stock + 1 }).eq('id', giftId); if (currentQty > 1) await sb.from('user_inventory').update({ quantity: currentQty - 1 }).eq('id', inventoryId); else await sb.from('user_inventory').delete().eq('id', inventoryId); await addLog(`Shop: Sold ${g.name} for ${g.sell_price} Ð`); alert(`Sold ${g.name}! +${g.sell_price} Ð.`); openAssetsModal(); };
-window.sendGiftPrompt = async (giftId, giftName) => { const recipientId = prompt(`Send ${giftName} to (Enter User ID):`); if (!recipientId) return; if (parseInt(recipientId) === currentUser.user_id) return alert('Cannot send to yourself.'); const { data: recipient } = await sb.from('app_users').select('*').eq('user_id', parseInt(recipientId)).single(); if (!recipient) return alert('User not found.'); const { data: senderInv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', currentUser.user_id).eq('gift_id', giftId).maybeSingle(); if (!senderInv) return alert('You do not own this gift.'); if (senderInv.quantity > 1) await sb.from('user_inventory').update({ quantity: senderInv.quantity - 1 }).eq('id', senderInv.id); else await sb.from('user_inventory').delete().eq('id', senderInv.id); const { data: recInv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', recipient.user_id).eq('gift_id', giftId).maybeSingle(); if (recInv) await sb.from('user_inventory').update({ quantity: recInv.quantity + 1 }).eq('id', recInv.id); else await sb.from('user_inventory').insert([{ user_id: recipient.user_id, gift_id: giftId, quantity: 1 }]); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: recipient.user_id, content: `🎁 You received a gift from ${currentUser.username}!` }]); await addRating(3, 1); // SystemBot gets rating for sending gift msg
+window.sendGiftPrompt = async (giftId, giftName) => { const recipientId = prompt(`Send ${giftName} to (Enter User ID):`); if (!recipientId) return; if (parseInt(recipientId) === currentUser.user_id) return alert('Cannot send to yourself.'); const { data: recipient } = await sb.from('app_users').select('*').eq('user_id', parseInt(recipientId)).single(); if (!recipient) return alert('User not found.'); const { data: senderInv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', currentUser.user_id).eq('gift_id', giftId).maybeSingle(); if (!senderInv) return alert('You do not own this gift.'); if (senderInv.quantity > 1) await sb.from('user_inventory').update({ quantity: senderInv.quantity - 1 }).eq('id', senderInv.id); else await sb.from('user_inventory').delete().eq('id', senderInv.id); const { data: recInv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', recipient.user_id).eq('gift_id', giftId).maybeSingle(); if (recInv) await sb.from('user_inventory').update({ quantity: recInv.quantity + 1 }).eq('id', recInv.id); else await sb.from('user_inventory').insert([{ user_id: recipient.user_id, gift_id: giftId, quantity: 1 }]); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: recipient.user_id, content: `🎁 You received a gift from ${currentUser.username}!` }]); await addRating(3, 1); 
   alert(`Gift sent to ${recipient.username}!`); openAssetsModal(); };
 window.openRedeemModal = () => { openModal('Redeem Code', `<label class="field">Enter Code</label><input type="text" id="rd-code" placeholder="e.g. DOTVERSE100" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);" /><button class="btn" onclick="redeemCode()">Redeem</button><div id="rd-res" style="text-align:center; margin-top:15px; font-weight:bold;"></div>`); };
 window.redeemCode = async () => { const code = el('rd-code').value.trim(); if(!code) return alert('Enter a code.'); const { data: rc } = await sb.from('redeem_codes').select('*').eq('code', code).single(); if(!rc) return el('rd-res').innerHTML = '<span style="color:#ef4444">Invalid code.</span>'; if(rc.uses >= rc.max_uses) return el('rd-res').innerHTML = '<span style="color:#ef4444">Code expired.</span>'; await sb.from('redeem_codes').update({ uses: rc.uses + 1 }).eq('code', code); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency + parseFloat(rc.reward_value) }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; await addLog(`Redeemed code for ${rc.reward_value} Ð`); el('rd-res').innerHTML = `<span style="color:#16a34a">Success! +${rc.reward_value} Ð</span>`; };
@@ -560,7 +586,7 @@ window.playRoulette = async () => { const type = document.getElementById('rl-typ
 window.openRPSModal = () => { openModal('Rock Paper Scissors', `<p style="font-size:13px; color:var(--muted); text-align:center; margin-bottom:15px;">Choose your weapon. Win 2x your bet.</p><label class="field">Bet Amount (Ð)</label><input type="number" id="rps-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); margin-bottom:15px;" /><div style="display:flex; gap:10px;"><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playPMS('rock')">✊</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button></div><div id="rps-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); };
 window.playRPS = async (choice) => { const amt = parseFloat(document.getElementById('rps-amt').value); if(!amt || amt <= 0) return alert('Invalid bet amount.'); if(amt > currentUser.currency) return alert('Not enough dots.'); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; const treasury = await getTreasury(); const choices = ['rock', 'paper', 'scissors']; const botChoice = choices[Math.floor(Math.random() * 3)]; let win = false, tie = false; if (choice === botChoice) tie = true; else if ((choice === 'rock' && botChoice === 'scissors') || (choice === 'paper' && botChoice === 'rock') || (choice === 'scissors' && botChoice === 'paper')) win = true; const icons = { rock: '✊', paper: '✋', scissors: '✌️' }; let resultText = `You: ${icons[choice]} | Bot: ${icons[botChoice]}<br>`; if (tie) { resultText += 'TIE! Bet returned.'; const { data: finalUser } = await sb.from('app_users').update({ currency: currentUser.currency + amt }).eq('user_id', currentUser.user_id).select().single(); currentUser = finalUser; } else if (win) { const payout = amt * 2; const { data: finalUser } = await sb.from('app_users').update({ currency: currentUser.currency + payout }).eq('user_id', currentUser.user_id).select().single(); currentUser = finalUser; await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - payout }); resultText += `WIN! +${payout.toFixed(2)} Ð`; await addLog(`RPS: Won ${payout.toFixed(2)} Ð`); } else { await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + amt }); await addLog(`RPS: Lost ${amt} Ð`); resultText += 'LOST!'; } const resEl = document.getElementById('rps-res'); resEl.innerHTML = resultText; resEl.style.color = tie ? '#ca8a04' : (win ? '#16a34a' : '#ef4444'); };
 window.openTransferDotsModal = () => { openModal('Send Dots',`<label class="field">Recipient ID Number</label><input type="number" id="td-to" placeholder="e.g. 2" /><label class="field">Amount (Ð)</label><input type="number" id="td-amt" placeholder="e.g. 1.50" step="0.01" min="0.01" /><p style="font-size:12px;color:var(--muted);margin-top:5px;">10% tax applies. Receiver gets 90%.</p><button class="btn" onclick="transferDots()">Send</button>`); };
-window.transferDots = async () => { const toId = parseInt(el('td-to').value); const amt = parseFloat(el('td-amt').value); if(!toId || !amt || amt <= 0) return alert('Invalid input.'); if(amt > currentUser.currency) return alert('Not enough dots.'); if(toId === currentUser.user_id) return alert('Cannot send to yourself.'); const { data: receiver } = await sb.from('app_users').select('*').eq('user_id', toId).single(); if (!receiver) return alert('Receiver not found.'); const tax = amt * 0.1; const receiverGets = amt - tax; const treasury = await getTreasury(); const { data: updatedSender } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single(); await sb.from('app_users').update({ currency: receiver.currency + receiverGets }).eq('user_id', toId); await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) + tax }); currentUser = updatedSender; await addLog(`Sent ${amt} Ð to ID #${toId}`); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: toId, content: `💸 You received ${receiverGets.toFixed(2)} Ð from ${currentUser.username}!` }]); await addRating(3, 1); // SystemBot gets rating
+window.transferDots = async () => { const toId = parseInt(el('td-to').value); const amt = parseFloat(el('td-amt').value); if(!toId || !amt || amt <= 0) return alert('Invalid input.'); if(amt > currentUser.currency) return alert('Not enough dots.'); if(toId === currentUser.user_id) return alert('Cannot send to yourself.'); const { data: receiver } = await sb.from('app_users').select('*').eq('user_id', toId).single(); if (!receiver) return alert('Receiver not found.'); const tax = amt * 0.1; const receiverGets = amt - tax; const treasury = await getTreasury(); const { data: updatedSender } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single(); await sb.from('app_users').update({ currency: receiver.currency + receiverGets }).eq('user_id', toId); await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) + tax }); currentUser = updatedSender; await addLog(`Sent ${amt} Ð to ID #${toId}`); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: toId, content: `💸 You received ${receiverGets.toFixed(2)} Ð from ${currentUser.username}!` }]); await addRating(3, 1); 
   alert(`Success! Sent ${amt}Ð to ID #${toId}. They received ${receiverGets.toFixed(2)}Ð.`); closeModal(); el('tb-dots').click(); };
 window.sendDotsPrompt = (id) => { openTransferDotsModal(); el('td-to').value = id; };
 window.refreshBalance = async (e) => { if(e) e.stopPropagation(); const { data } = await sb.from('app_users').select('currency').eq('user_id', currentUser.user_id).single(); if(data) { currentUser.currency = data.currency; const modalTitle = el('modal-root').querySelector('h3'); if (modalTitle && modalTitle.textContent === 'Dots & Services') el('tb-dots').click(); } };
@@ -685,9 +711,9 @@ async function loadAdminSMs() {
 }
 window.adminVerifyAction = async (id) => { await sb.from('app_users').update({ is_verified: true, verification_requested: false }).eq('user_id', id); alert('User verified!'); loadAdminRequests(); };
 window.adminRejectVerifyAction = async (id) => { await sb.from('app_users').update({ verification_requested: false }).eq('user_id', id); alert('Request rejected.'); loadAdminRequests(); };
-window.adminBanAction = async () => { const id = el('ban-id') ? el('ban-id').value : el('sm-ban-id').value; const mins = el('ban-mins') ? el('ban-mins').value : el('sm-ban-mins').value; const fine = el('ban-fine') ? el('ban-fine').value : el('sm-ban-fine').value; if(!id || !mins) return alert('Enter ID and Mins.'); const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single(); if(!u) return alert('User not found.'); const banUntil = new Date(Date.now() + parseInt(mins) * 60000).toISOString(); let newCurrency = parseFloat(u.currency); if(parseFloat(fine) > 0) { newCurrency -= parseFloat(fine); if(newCurrency < 0) newCurrency = 0; const treasury = await getTreasury(); await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(fine) }); } await sb.from('app_users').update({ banned_until: banUntil, current_room_id: 3, currency: newCurrency, ban_fine: parseFloat(fine) }).eq('user_id', id); await sb.from('public_messages').insert([{ room_id: u.current_room_id || 1, user_id: 3, username: 'SystemBot', content: `🔨 User ${u.username} has been banned.` }]); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: id, content: `🚨 You have been banned for ${mins} minutes. Fine: ${fine} Ð.` }]); await addRating(3, 2); // SystemBot gets 2 points (1 for public, 1 for private)
+window.adminBanAction = async () => { const id = el('ban-id') ? el('ban-id').value : el('sm-ban-id').value; const mins = el('ban-mins') ? el('ban-mins').value : el('sm-ban-mins').value; const fine = el('ban-fine') ? el('ban-fine').value : el('sm-ban-fine').value; if(!id || !mins) return alert('Enter ID and Mins.'); const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single(); if(!u) return alert('User not found.'); const banUntil = new Date(Date.now() + parseInt(mins) * 60000).toISOString(); let newCurrency = parseFloat(u.currency); if(parseFloat(fine) > 0) { newCurrency -= parseFloat(fine); if(newCurrency < 0) newCurrency = 0; const treasury = await getTreasury(); await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(fine) }); } await sb.from('app_users').update({ banned_until: banUntil, current_room_id: 3, currency: newCurrency, ban_fine: parseFloat(fine) }).eq('user_id', id); await sb.from('public_messages').insert([{ room_id: u.current_room_id || 1, user_id: 3, username: 'SystemBot', content: `🔨 User ${u.username} has been banned.` }]); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: id, content: `🚨 You have been banned for ${mins} minutes. Fine: ${fine} Ð.` }]); await addRating(3, 2); 
   alert('User banned!'); el('tb-admin').click(); };
-window.adminUnbanAction = async () => { const id = el('unban-id') ? el('unban-id').value : el('sm-unban-id').value; if(!id) return alert('Enter ID.'); const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single(); if(!u) return alert('User not found.'); await sb.from('app_users').update({ banned_until: new Date().toISOString(), current_room_id: 1, ban_fine: 0 }).eq('user_id', id); await sb.from('public_messages').insert([{ room_id: 1, user_id: 3, username: 'SystemBot', content: `✅ User ${u.username} has been unbanned.` }]); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: id, content: '✅ You have been unbanned! Welcome back.' }]); await addRating(3, 2); // SystemBot gets 2 points
+window.adminUnbanAction = async () => { const id = el('unban-id') ? el('unban-id').value : el('sm-unban-id').value; if(!id) return alert('Enter ID.'); const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single(); if(!u) return alert('User not found.'); await sb.from('app_users').update({ banned_until: new Date().toISOString(), current_room_id: 1, ban_fine: 0 }).eq('user_id', id); await sb.from('public_messages').insert([{ room_id: 1, user_id: 3, username: 'SystemBot', content: `✅ User ${u.username} has been unbanned.` }]); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: id, content: '✅ You have been unbanned! Welcome back.' }]); await addRating(3, 2); 
   alert('User unbanned!'); el('tb-admin').click(); };
 window.adminAddRateAction = async () => { const id = el('addrate-id').value; const amt = el('addrate-amt').value; if(!id || !amt) return alert('Enter ID and Amount.'); const { data: u } = await sb.from('app_users').select('rating_points').eq('user_id', id).single(); if(!u) return alert('User not found.'); await sb.from('app_users').update({ rating_points: parseInt(u.rating_points) + parseInt(amt) }).eq('user_id', id); alert('Rating added!'); el('tb-admin').click(); };
 window.adminCutRateAction = async () => { const id = el('cutrate-id').value; const amt = el('cutrate-amt').value; if(!id || !amt) return alert('Enter ID and Amount.'); const { data: u } = await sb.from('app_users').select('rating_points').eq('user_id', id).single(); if(!u) return alert('User not found.'); let newScore = parseInt(u.rating_points) - parseInt(amt); if(newScore < 0) newScore = 0; await sb.from('app_users').update({ rating_points: newScore }).eq('user_id', id); alert('Rating cut!'); el('tb-admin').click(); };
