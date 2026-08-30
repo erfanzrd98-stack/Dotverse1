@@ -10,124 +10,73 @@
   *{box-sizing:border-box;} html,body{height:100%;margin:0;font-family:"Tahoma","Arial",sans-serif;background:var(--bg);color:var(--ink);overflow:hidden;}
   .hidden{display:none!important;}
   ::-webkit-scrollbar{width:8px;} ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
-  
-  /* Auth & Main UI */
   .auth-wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:24px;overflow-y:auto;}
   .auth-card{width:100%;max-width:380px;border:1px solid var(--line);border-radius:14px;padding:32px 28px;background:#fff;box-shadow:0 12px 32px -12px rgba(0,0,0,.1);}
   .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px;} .brand-dot{width:14px;height:14px;border-radius:50%;background:var(--dot);box-shadow:0 0 0 4px var(--dot-soft);}
   .brand-name{font-size:20px;font-weight:700;} .auth-sub{color:var(--muted);font-size:13.5px;margin:0 0 24px;}
   .tabs{display:flex;gap:4px;margin-bottom:20px;background:#f4f5f7;border-radius:10px;padding:3px;} .tab{flex:1;text-align:center;padding:8px 0;font-size:13.5px;font-weight:600;border-radius:8px;cursor:pointer;color:var(--muted);} .tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1);}
-  label.field{display:block;font-size:14px;font-weight:bold;color:#1a1a1a;margin:12px 0 5px;font-family:var(--classic-font, inherit);}
-  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--classic-border-line, #a67c2e);border-radius:0;font-size:15px;outline:none;background:#fffdf0;font-family:var(--classic-font, inherit);color:#1a1a1a;}
-  input:focus,select:focus,textarea:focus{border-color:#6266b8;background:#fff;}
-  .btn{padding:11px 0;border:2px outset #fff;cursor:pointer;font-size:15px;font-weight:bold;width:calc(100% - 28px);background:var(--classic-btn-face, #d9d5cc);color:#000;margin:10px 14px;font-family:var(--classic-font, inherit);}
-  .btn:active{border-style:inset;}
-  .btn-sm{padding:7px 12px;font-size:13px;border:2px outset #fff;background:var(--classic-btn-face, #d9d5cc);color:#000;width:auto;margin:0;font-family:var(--classic-font, inherit);font-weight:bold;}
-  .btn-sm:active{border-style:inset;}
-  .btn-danger{background:#e0b0ac;color:#5a0f0f;} .auth-msg{font-size:13px;margin-top:12px;min-height:16px;color:var(--danger);}
-
-  /* Shell */
+  label.field{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:14px 0 6px;}
+  input,select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:14.5px;outline:none;background:#fbfbfc;font-family:inherit;}
+  input:focus,select:focus{border-color:var(--dot);background:#fff;}
+  .btn{padding:12px 0;border:none;border-radius:10px;cursor:pointer;font-size:14.5px;font-weight:700;width:100%;background:var(--dot);color:#fff;margin-top:20px;font-family:inherit;}
+  .btn-sm{padding:7px 12px;font-size:12.5px;border-radius:8px;background:#f4f5f7;color:var(--ink);width:auto;margin:0;}
+  .btn-danger{background:#ef4444;color:#fff;} .auth-msg{font-size:13px;margin-top:12px;min-height:16px;color:var(--danger);}
   #app{height:100%; display:flex; flex-direction:column;} #shell{display:flex;flex-direction:column;height:100%;overflow:hidden;}
   #topbar-mobile{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);background:#fff;flex-shrink:0;overflow-x:auto;}
   .topbar-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px 4px;cursor:pointer;color:var(--muted);min-width:45px;}
   .topbar-btn .tb-icon{font-size:20px;} .topbar-btn .tb-label{display:none;} .topbar-btn.hidden{display:none;}
-  
   #main{flex:1;display:flex;flex-direction:column;min-height:0;}
   #broadcast-root{background:#fffae6; color:#b45309; text-align:center; padding:8px 15px; font-size:12.5px; border-bottom:1px solid var(--line); font-weight:600;}
   #room-header{display:flex;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);flex-shrink:0;}
   #room-header .rtitle{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;} #room-header .rscore{font-size:12px;color:var(--muted);}
-  
   #messages{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-height:0;}
   .msg{display:flex;gap:8px;align-items:flex-start;}
   .avatar-emoji{font-size:16px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--dot-soft);border-radius:50%;flex-shrink:0;cursor:pointer;overflow:hidden;}
   .avatar-img{width:100%;height:100%;object-fit:cover;}
   .msg-body{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;} .msg-name{font-size:13px;font-weight:700;cursor:pointer;} .msg-text{font-size:14px;word-break:break-word;}
   .sys-msg{text-align:center;color:var(--muted);font-size:12px;font-style:italic;margin:5px 0;}
-  
   #composer{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);flex-shrink:0;} #composer input{flex:1;font-family:inherit;} #composer button{padding:0 20px;margin:0;width:auto;}
-
-  /* Modals & Menus — Classic Retro "Profile Window" Theme */
-  :root{
-    --classic-font: Georgia, "Times New Roman", Times, serif;
-    --classic-gray: #d6d6d6;
-    --classic-yellow: #fff6c8;
-    --classic-yellow-line: #d9c98a;
-    --classic-border-line: #a67c2e;
-    --classic-title-top: #e3e4ff;
-    --classic-title-mid: #9a9de0;
-    --classic-title-bot: #6266b8;
-    --classic-title-border: #4b4f9e;
-    --classic-btn-face: #d9d5cc;
-    --classic-btn-hi: #ffffff;
-    --classic-btn-lo: #8a8a8a;
-  }
-  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:80;padding:20px;overflow-y:auto;}
-  .modal-card{background:#fdfcf6;border:2px solid var(--classic-title-border);border-radius:3px;padding:0;width:100%;max-width:380px;max-height:86vh;overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;box-shadow:2px 4px 14px rgba(0,0,0,.4);font-family:var(--classic-font);}
-  .modal-card.wide{max-width:600px;}
-  .modal-titlebar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px 7px 12px;background:linear-gradient(180deg, var(--classic-title-top) 0%, var(--classic-title-mid) 55%, var(--classic-title-bot) 100%);border-bottom:2px solid var(--classic-title-border);flex-shrink:0;}
-  .modal-titlebar-text{font-weight:bold;font-size:19px;color:#1a1a3d;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .modal-titlebar-close{width:24px;height:24px;flex-shrink:0;background:linear-gradient(180deg,#8fb0ea,#3a63b8);border:1px solid #22417a;color:#fff;font-weight:bold;font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:2px;}
-  .modal-titlebar-close:active{background:linear-gradient(180deg,#3a63b8,#8fb0ea);}
-  .modal-body{padding:0 0 14px;overflow-y:auto;font-size:17px;color:#1a1a1a;}
-  .modal-body-pad{padding:2px 6px;}
-  .modal-body-pad p, .modal-body-pad label.field, .modal-body-pad textarea{margin-left:8px;margin-right:8px;}
-  .modal-body-pad > input, .modal-body-pad > textarea, .modal-body-pad > select{width:calc(100% - 16px);margin:0 8px;}
-  .close-x{display:none;}
-  .list-row{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--classic-border-line);font-size:16px;cursor:pointer;background:var(--classic-yellow);}
-  .list-row:nth-child(odd){background:#fffdf0;}
-  .ctx-menu{position:fixed;background:#fdfcf6;border:2px solid var(--classic-title-border);border-radius:3px;box-shadow:2px 3px 10px rgba(0,0,0,.35);padding:4px;z-index:90;min-width:190px;font-family:var(--classic-font);}
-  .ctx-item{padding:8px 12px;font-size:14px;font-weight:600;cursor:pointer;color:#1a1a1a;border-bottom:1px solid var(--classic-yellow-line);} .ctx-item:last-child{border-bottom:none;} .ctx-item:hover{background:var(--classic-yellow);}
-  
-  /* Admin Panel Bubbles */
-  .admin-bubble{background:var(--classic-gray);border:1px solid var(--classic-border-line);border-radius:2px;padding:12px;margin:10px 14px;}
-  .admin-bubble-title{font-size:15px;font-weight:bold;margin-bottom:8px;color:#1a1a1a;display:flex;align-items:center;gap:6px;font-family:var(--classic-font);}
-  .admin-bubble-row{display:flex;gap:6px;margin-bottom:6px;align-items:center;}
-  .admin-bubble input{padding:7px;border:1px solid var(--classic-border-line);font-size:13px;background:var(--classic-yellow);text-align:center;width:100%;font-family:var(--classic-font);}
-  .admin-bubble button{padding:8px 10px;background:var(--classic-btn-face);color:#000;border:2px outset var(--classic-btn-hi);font-size:12px;cursor:pointer;font-weight:bold;white-space:nowrap;font-family:var(--classic-font);}
-  .admin-bubble button:active{border-style:inset;}
-  .admin-bubble button.danger{background:#e8b0ac;}
-  .admin-bubble button.success{background:#b6e0ae;}
-  .admin-gift-row{display:flex;align-items:center;gap:6px;padding:7px 14px;border-bottom:1px solid var(--classic-border-line);background:var(--classic-yellow);}
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:80;padding:20px;overflow-y:auto;}
+  .modal-card{background:#fff;border-radius:16px;padding:26px;width:100%;max-width:380px;max-height:86vh;overflow-y:auto;box-sizing:border-box;}
+  .modal-card.wide{max-width:600px;} .close-x{float:right;cursor:pointer;color:var(--muted);font-weight:700;}
+  .list-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #f4f5f7;font-size:13px;cursor:pointer;}
+  .ctx-menu{position:fixed;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.2);padding:6px;z-index:90;min-width:180px;}
+  .ctx-item{padding:9px 12px;font-size:13px;font-weight:600;border-radius:7px;cursor:pointer;} .ctx-item:hover{background:#f4f5f7;}
+  .admin-bubble{background:#f9fafb;border:1px solid var(--line);border-radius:10px;padding:15px;margin-bottom:15px;}
+  .admin-bubble-title{font-size:14px;font-weight:bold;margin-bottom:10px;color:var(--ink);display:flex;align-items:center;gap:6px;}
+  .admin-bubble-row{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+  .admin-bubble input{padding:8px;border-radius:6px;border:1px solid var(--line);font-size:13px;background:#fff;text-align:center;width:100%;}
+  .admin-bubble button{padding:8px 12px;background:var(--dot);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold;white-space:nowrap;}
+  .admin-bubble button.danger{background:#ef4444;}
+  .admin-bubble button.success{background:#16a34a;}
+  .admin-gift-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #eee;}
   .admin-gift-row span.icon{font-size:20px;width:24px;text-align:center;}
-  .admin-gift-row input{padding:6px;border:1px solid var(--classic-border-line);font-size:12px;width:48px;text-align:center;background:#fff;}
-  
-  /* Profile & Lists — classic two-tone table */
-  .p-row{display:flex;align-items:stretch;justify-content:space-between;border-bottom:1px solid var(--classic-border-line);min-height:38px;}
-  .p-label{width:45%;font-size:15px;color:#1a1a1a;font-weight:bold;padding:8px 10px;text-align:left;background:var(--classic-gray);display:flex;align-items:center;}
-  .p-val{width:55%;padding:6px 10px;display:flex;justify-content:flex-end;align-items:center;background:var(--classic-yellow);}
-  .p-input, .p-select{width:100%;max-width:150px;border:1px solid var(--classic-border-line);padding:6px 8px;font-size:14px;background:#fffdf0;outline:none;text-align:right;font-family:var(--classic-font);}
-  .p-bubble{background:#fffdf0;color:#1a1a1a;padding:4px 10px;font-weight:bold;font-size:14px;text-align:center;border:1px solid var(--classic-border-line);}
-  .p-btn-row{display:flex;gap:0;margin-top:14px;} .p-btn{flex:1;padding:10px;border:2px outset var(--classic-btn-hi);font-weight:bold;font-size:16px;cursor:pointer;font-family:var(--classic-font);background:var(--classic-btn-face);color:#000;}
-  .p-btn:active{border-style:inset;}
-  .p-btn-save{background:#c8d8b0;} .p-btn-logout{background:#e0b8b8;}
-  .p-color-grid{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:150px;} .p-color-opt{width:18px;height:18px;border-radius:50%;cursor:pointer;border:2px solid #666;} .p-color-opt.selected{border-color:#1a1a1a;box-shadow:0 0 0 1px #fff;}
-
-  /* Classic Small PM Popups */
+  .admin-gift-row input{padding:6px;border-radius:4px;border:1px solid #ccc;font-size:12px;width:50px;text-align:center;}
+  .p-row{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f4f5f7;padding:10px 0;min-height:40px;}
+  .p-label{width:45%;font-size:13px;color:var(--muted);font-weight:600;border-right:1px solid var(--line);padding-right:10px;text-align:left;}
+  .p-val{width:55%;padding-left:10px;display:flex;justify-content:flex-end;align-items:center;}
+  .p-input, .p-select{width:100%;max-width:140px;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:13px;background:#f9f9f9;outline:none;text-align:right;font-family:inherit;}
+  .p-bubble{background:var(--dot-soft);color:var(--dot);padding:6px 16px;border-radius:20px;font-weight:700;font-size:13px;text-align:center;}
+  .p-btn-row{display:flex;gap:10px;margin-top:20px;} .p-btn{flex:1;padding:10px;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;}
+  .p-btn-save{background:var(--dot);color:#fff;} .p-btn-logout{background:transparent;color:var(--danger);border:1px solid var(--danger);}
+  .p-color-grid{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:140px;} .p-color-opt{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;} .p-color-opt.selected{border-color:var(--ink);}
   #pm-popup-root{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:120;display:flex;flex-direction:column;gap:10px;align-items:center;}
-  .pm-popup-card{width:287px;box-shadow:2px 3px 8px rgba(0,0,0,0.45);display:flex;flex-direction:column;background:#fff;font-family:"Tahoma","Arial",sans-serif;}
+  .pm-popup-card{width:287px;box-shadow:2 3px 8px rgba(0,0,0,0.45);display:flex;flex-direction:column;background:#fff;font-family:"Tahoma","Arial",sans-serif;}
   .pm-popup-header{height:23px;font-size:14px;padding:0 4px 0 0;display:flex;justify-content:space-between;align-items:center;direction:ltr;}
   .pm-popup-header span:first-child{padding-left:8px;display:flex;align-items:center;gap:4px;font-weight:bold;} .pm-popup-header img{width:16px;height:16px;border-radius:50%;vertical-align:middle;}
   .pm-popup-close{width:20px;height:23px;text-align:center;line-height:23px;font-weight:bold;font-size:13px;cursor:pointer;}
   .pm-popup-text{min-height:43px;font-size:11.5px;text-align:center;display:flex;align-items:center;justify-content:center;padding:0 8px;line-height:1.25;direction:ltr;}
   .pm-popup-actions{display:flex;height:26px;} .pm-popup-actions button{flex:1;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:bold;border:2px outset;} .pm-popup-actions button:active{border-style:inset;}
   .pm-popup-reply-box{display:flex;height:26px;} .pm-popup-reply-box input{flex:1;padding:2px 4px;border:none;font-size:12px;outline:none;font-family:inherit;background:#fff;} .pm-popup-reply-box button{width:60px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:bold;border:2px outset;}
-  
   .pm-history-view{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:16px;}
   .pm-history-msg{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;word-break:break-word;color:#000;}
-
-  /* Tabs & Lists — classic theme */
-  .pm-modal-tabs{display:flex;gap:0;margin:12px 14px 6px;border:1px solid var(--classic-border-line);}
-  .pm-modal-tab{flex:1;text-align:center;padding:7px 0;font-size:16px;cursor:pointer;color:#1a1a1a;background:var(--classic-gray);border-right:1px solid var(--classic-border-line);font-family:var(--classic-font);font-weight:bold;}
-  .pm-modal-tab:last-child{border-right:none;}
-  .pm-modal-tab.active{background:var(--classic-yellow);}
-  .friend-row{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:1px solid var(--classic-border-line);background:var(--classic-yellow);}
-  .friend-row:nth-child(odd){background:#fffdf0;}
-  .friend-info{display:flex;align-items:center;gap:10px;} .friend-av{font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--classic-gray);border:1px solid var(--classic-border-line);border-radius:50%;overflow:hidden;}
-  .friend-name{font-weight:bold;font-size:15px;} .friend-actions{display:flex;gap:4px;}
-  .act-btn{border:2px outset var(--classic-btn-hi);background:var(--classic-btn-face);width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
-  .act-btn:active{border-style:inset;}
-  .act-btn.danger{background:#e8b0ac;color:#7a1f1f;} .act-btn.primary{background:#a9c6ef;color:#0d2c58;}
-  .lb-rank{width:22px; height:22px; background:var(--classic-gray); border:1px solid var(--classic-border-line); color:#1a1a1a; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold;}
+  .pm-modal-tabs{display:flex;gap:4px;margin-bottom:20px;background:#f4f5f7;border-radius:10px;padding:3px;} .pm-modal-tab{flex:1;text-align:center;padding:8px 0;font-size:16px;border-radius:8px;cursor:pointer;color:var(--muted);} .pm-modal-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  .friend-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f4f5f7;}
+  .friend-info{display:flex;align-items:center;gap:10px;} .friend-av{font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--dot-soft);border-radius:50%;overflow:hidden;}
+  .friend-name{font-weight:600;font-size:14px;} .friend-actions{display:flex;gap:4px;}
+  .act-btn{border:none;background:#f4f5f7;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
+  .act-btn.danger{background:#fee2e2;color:#ef4444;} .act-btn.primary{background:var(--dot);color:#fff;}
+  .lb-rank{width:24px; height:24px; background:var(--dot); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold;}
 </style>
 </head>
 <body>
@@ -173,7 +122,7 @@ const ADMIN_GIF = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/pu
 const SM_CROWN_URL = "https://secsiftaabzbrfbaeaxn.supabase.co/storage/v1/object/public/Avatars/SM.png";
 const AI_WORKER_URL = "https://dotverse-nova.erfanzrd98.workers.dev/"; 
 
-let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, banCheckInterval = null, lastAiRequest = 0, novaAutoInterval = null, presenceSubscription = null;
+let currentUser = null, currentRoom = 1, msgSubscription = null, pmSubscription = null, broadcastSubscription = null, banCheckInterval = null, lastAiRequest = 0, novaAutoInterval = null, heartbeatInterval = null;
 const userCache = {}; 
 const AVATARS = ["🦊","🦄","🐰","🐭","🍄","☢️","🌼","♥️","♠️","♣️","♦️","👺","👻","👽","⛄","💀","👤","🧑🏻‍🚀","🧒🏻","👩🏻","🍁","🍀","🌲","⚡","🐥","🛡️","♂️","♀️"];
 const COLORS = ["#000000", "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#6b7280", "#f5780e"];
@@ -189,36 +138,31 @@ el('btn-register').onclick = async () => {
   const u=el('reg-username').value.trim(),p=el('reg-password').value,g=el('reg-gender').value,c=el('reg-city').value.trim();
   if(u.length < 3 || u.length > 14) return showMsg('Username must be 3-14 chars.');
   if(p.length < 3 || p.length > 14) return showMsg('Password must be 3-14 chars.');
-  try {
-    const { data, error } = await sb.from('app_users').insert([{ username: u, password: p, gender: g, city: c, currency: 10.00 }]).select().single();
-    if (error) { if(error.message.includes('duplicate')) return showMsg('Username already exists.'); return showMsg('DB Error: ' + error.message); }
-    currentUser = data; startApp();
-  } catch(e) { showMsg('Network Error: Cannot connect to DB.'); }
+  const { data, error } = await sb.rpc('register_user', { p_username:u, p_password:p, p_gender:g, p_city:c });
+  if (error) return showMsg(error.message);
+  currentUser = data; startApp();
 };
 
 el('btn-login').onclick = async () => {
   const u=el('login-username').value.trim(),p=el('login-password').value;
   if(!u||!p) return showMsg('Enter credentials.');
-  try {
-    const { data, error } = await sb.from('app_users').select('*').eq('username', u).eq('password', p).single();
-    if (error) { if(error.message.includes('multiple')) return showMsg('Duplicate users found.'); return showMsg('Invalid username or password.'); }
-    if (!data) return showMsg('User not found.');
-    currentUser = data; startApp();
-  } catch(e) { showMsg('Network Error: Cannot connect to DB.'); }
+  const { data, error } = await sb.rpc('login_user', { p_username:u, p_password:p });
+  if (error) return showMsg('Invalid username or password.');
+  currentUser = data; startApp();
 };
 
 async function startApp(){
   el('auth-screen').classList.add('hidden'); el('shell').classList.remove('hidden');
   if(currentUser.is_admin || currentUser.is_super_mod) el('tb-admin').classList.remove('hidden');
-  joinRoom(1); subscribeToPMs(); subscribeToBroadcasts(); startBanCheck(); startNovaAutoMessage(); subscribeToPresence();
-  window.addEventListener('beforeunload', handleUnload);
+  joinRoom(1); subscribeToPMs(); subscribeToBroadcasts(); startBanCheck(); startNovaAutoMessage(); startHeartbeat();
 }
 
-async function handleUnload() {
-  if (currentUser) {
-    await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 3, username: 'SystemBot', content: `↩️ ${currentUser.username} left the room` }]);
-    await sb.from('user_presence').delete().eq('user_id', currentUser.user_id);
-  }
+function startHeartbeat(){
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  heartbeatInterval = setInterval(async () => {
+    if (!currentUser) return;
+    await sb.from('user_presence').upsert({ user_id: currentUser.user_id, room_id: currentRoom, last_seen: new Date().toISOString() });
+  }, 30000);
 }
 
 function getPmColorScheme(user) {
@@ -251,28 +195,7 @@ function getRatingTier(score) {
   return 'Galaxy';
 }
 
-async function checkRatingTierChange(oldScore, newScore) {
-  const oldTier = getRatingTier(oldScore);
-  const newTier = getRatingTier(newScore);
-  if (oldTier !== newTier) {
-    await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: currentUser.user_id, content: `🎉 Congratulations ${currentUser.username}! You have reached the ${newTier} tier!` }]);
-  }
-}
-
-async function addRating(userId, points) {
-  try {
-    const { data: u } = await sb.from('app_users').select('rating_points').eq('user_id', userId).single();
-    if (u) {
-      const oldScore = u.rating_points || 0;
-      const newScore = oldScore + points;
-      await sb.from('app_users').update({ rating_points: newScore }).eq('user_id', userId);
-      if (userId === currentUser.user_id) {
-        currentUser.rating_points = newScore;
-        await checkRatingTierChange(oldScore, newScore);
-      }
-    }
-  } catch(e) { console.error('Rating update error', e); }
-}
+async function addRating(userId, points) { /* moved to DB trigger */ }
 
 async function getTreasury() { const { data } = await sb.from('admin_settings').select('*').eq('id', 1).single(); return data; }
 async function updateTreasury(updates) { await sb.from('admin_settings').update(updates).eq('id', 1); }
@@ -301,25 +224,6 @@ function showBroadcast(b) {
   setTimeout(() => { root.classList.add('hidden'); root.innerHTML = ''; }, expires.getTime() - now.getTime());
 }
 
-// --- Presence Logic ---
-function subscribeToPresence() {
-  if (presenceSubscription) sb.removeChannel(presenceSubscription);
-  presenceSubscription = sb.channel('user_presence')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_presence' }, payload => handlePresenceChange(payload.new, 'join'))
-    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'user_presence' }, payload => handlePresenceChange(payload.old, 'leave'))
-    .subscribe();
-}
-async function handlePresenceChange(record, action) {
-  if (record.user_id === currentUser.user_id) return; // Don't notify self
-  if (record.room_id !== currentRoom) return; // Only notify for current room
-
-  const { data: u } = await sb.from('app_users').select('username').eq('user_id', record.user_id).single();
-  if (u) {
-    const msg = action === 'join' ? `➡️ ${u.username} entered the room` : `↩️ ${u.username} left the room`;
-    await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 3, username: 'SystemBot', content: msg }]);
-  }
-}
-
 async function joinRoom(id){
   closeModal();
   if (id === 2 && currentUser.user_id !== 1 && currentUser.user_id !== 3) {
@@ -330,21 +234,12 @@ async function joinRoom(id){
     currentUser = updatedUser; await updateTreasury({ fund_balance: parseFloat(settings.fund_balance) + fee }); alert('Welcome to VIP Room!');
   }
 
-  // Update presence: Leave old room, join new room
-  await sb.from('user_presence').upsert([{ user_id: currentUser.user_id, room_id: id }]);
-  
-  // Notify old room if leaving
-  if (currentRoom !== id) {
-    await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 3, username: 'SystemBot', content: `↩️ ${currentUser.username} left the room` }]);
-  }
+  await sb.from('user_presence').upsert({ user_id: currentUser.user_id, room_id: id, last_seen: new Date().toISOString() });
 
   currentRoom = id; if (msgSubscription) await sb.removeChannel(msgSubscription);
   const { data: room } = await sb.from('rooms').select('*').eq('room_id', id).single();
   if (room) { el('room-title').textContent = room.name; el('room-meta').textContent = 'ID: ' + room.room_id + ' · ' + room.rating_points + ' pts'; }
   await loadMessages();
-  
-  // Notify new room
-  await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 3, username: 'SystemBot', content: `➡️ ${currentUser.username} entered the room` }]);
 
   const isBanned = new Date(currentUser.banned_until) > new Date();
   if (id === 3 && isBanned) {
@@ -370,7 +265,6 @@ async function appendMessage(m, isRealtime){
   const w = el('messages'); const div = document.createElement('div');
   if (!m.user_id) { div.className = 'sys-msg'; div.textContent = m.content; w.appendChild(div); if (isRealtime) w.scrollTop = w.scrollHeight; return; }
   
-  // Hide SystemBot join/leave messages for the user themselves to avoid spam
   if (m.user_id === 3 && m.username === 'SystemBot' && (m.content.includes('entered the room') || m.content.includes('left the room'))) {
     const mentionedUser = m.content.split(' ')[1];
     if (mentionedUser === currentUser.username) {
@@ -397,7 +291,6 @@ async function appendMessage(m, isRealtime){
   w.appendChild(div); if (isRealtime) w.scrollTop = w.scrollHeight;
 }
 
-// --- Nova AI Logic ---
 async function handleAiPrompt(text) {
   const now = Date.now();
   if (now - lastAiRequest < 5000) return alert('Please wait 5 seconds before asking Nova again.');
@@ -414,27 +307,21 @@ function startNovaAutoMessage() {
   if (novaAutoInterval) clearInterval(novaAutoInterval);
   novaAutoInterval = setInterval(async () => {
     try {
-      const { data: lastMsg } = await sb.from('public_messages')
-        .select('created_at')
-        .eq('user_id', 4)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      
-      const thirtyMins = 30 * 60 * 1000;
-      const now = Date.now();
-      
-      if (!lastMsg || (now - new Date(lastMsg.created_at).getTime() > thirtyMins)) {
-        const res = await fetch(AI_WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: "Generate a short, interesting, random thought, fact, or philosophical question to start a conversation in the chat room. Just output the text, nothing else." })
-        });
-        const data = await res.json();
-        if (data.reply) {
-          await sb.from('public_messages').insert([{ room_id: 1, user_id: 4, username: 'Nova', content: data.reply }]);
-          await addRating(4, 1);
-        }
+      const { data: locked } = await sb.from('admin_settings')
+        .update({ nova_last_auto: new Date().toISOString() })
+        .eq('id', 1)
+        .lt('nova_last_auto', new Date(Date.now() - 30 * 60 * 1000).toISOString())
+        .select().single();
+      if (!locked) return;
+
+      const res = await fetch(AI_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: "Generate a short, interesting, random thought, fact, or philosophical question to start a conversation in the chat room. Just output the text, nothing else." })
+      });
+      const data = await res.json();
+      if (data.reply) {
+        await sb.from('public_messages').insert([{ room_id: 1, user_id: 4, username: 'Nova', content: data.reply }]);
       }
     } catch (e) { console.error('Nova auto error', e); }
   }, 60000);
@@ -450,23 +337,19 @@ el('btn-send').onclick = async () => {
 
   const { error: msgErr } = await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: currentUser.user_id, username: currentUser.username, content: t }]);
   if (msgErr) return alert('Error sending message: ' + msgErr.message);
-  
-  await addRating(currentUser.user_id, currentRoom === 2 ? 2 : 1);
 
   const { data: room } = await sb.from('rooms').select('rating_points').eq('room_id', currentRoom).single();
-  if (room) { await sb.from('rooms').update({ rating_points: room.rating_points + 1 }).eq('room_id', currentRoom); el('room-meta').textContent = 'ID: ' + currentRoom + ' · ' + (room.rating_points + 1) + ' pts'; }
+  if (room) { el('room-meta').textContent = 'ID: ' + currentRoom + ' · ' + room.rating_points + ' pts'; }
 
   if (isAi) {
     const aiReply = await handleAiPrompt(promptText);
     if (aiReply) { 
       await sb.from('public_messages').insert([{ room_id: currentRoom, user_id: 4, username: 'Nova', content: aiReply }]);
-      await addRating(4, 1); 
     }
   }
 };
 el('msg-input').addEventListener('keydown', e => { if(e.key==='Enter') el('btn-send').click(); });
 
-// --- PM Logic ---
 function subscribeToPMs() {
   if (pmSubscription) sb.removeChannel(pmSubscription);
   pmSubscription = sb.channel('private_messages').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages', filter: `receiver_id=eq.${currentUser.user_id}` }, payload => handleIncomingPM(payload.new)).subscribe();
@@ -499,21 +382,18 @@ async function sendReply(sender, popupId) {
   if(receiver) {
     const { error } = await sb.from('private_messages').insert([{ sender_id: currentUser.user_id, receiver_id: receiver.user_id, content: t }]);
     if (error) return alert('Error sending PM: ' + error.message);
-    await addRating(currentUser.user_id, 1);
     const lowerT = t.toLowerCase();
     if ((lowerT.startsWith('bot ') || lowerT.startsWith('بات ')) && sender === 'Nova') {
-      let promptText = lowerT.startsWith('bot ') ? t.substring(4) : t.substring(4);
+      let promptText = t.substring(4);
       const aiReply = await handleAiPrompt(promptText);
       if (aiReply) { 
         await sb.from('private_messages').insert([{ sender_id: 4, receiver_id: currentUser.user_id, content: aiReply }]);
-        await addRating(4, 1);
       }
     }
     document.getElementById(popupId).remove(); 
   } else { alert('User not found'); }
 }
 
-// --- Community Logic ---
 el('tb-pms').onclick = async () => {
   openModal('👥 Community', `<div class="pm-modal-tabs"><div class="pm-modal-tab active" onclick="switchCommunityTab('friends', this)">Friends</div><div class="pm-modal-tab" onclick="switchCommunityTab('history', this)">PM History</div><div class="pm-modal-tab" onclick="switchCommunityTab('report', this)">Report</div></div><div id="comm-friends"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div><div id="comm-history" class="hidden"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div><div id="comm-report" class="hidden"><label class="field">Message to Admin</label><textarea id="report-text" style="width:100%;height:100px;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:none;" placeholder="Write your report or request..."></textarea><button class="btn" onclick="sendReport()">Send Report</button></div>`);
   loadFriendsList(); loadPMHistory();
@@ -573,24 +453,21 @@ window.sendPMFromHistory = async (otherUserId, otherUsername) => {
   const inp = document.getElementById('pm-history-input'); const t = inp.value.trim(); if(!t) return; 
   const { error } = await sb.from('private_messages').insert([{ sender_id: currentUser.user_id, receiver_id: otherUserId, content: t }]);
   if (error) return alert('Error sending PM: ' + error.message);
-  await addRating(currentUser.user_id, 1);
   const lowerT = t.toLowerCase();
   if ((lowerT.startsWith('bot ') || lowerT.startsWith('بات ')) && otherUsername === 'Nova') {
-    let promptText = lowerT.startsWith('bot ') ? t.substring(4) : t.substring(4);
+    const promptText = t.substring(4);
     const aiReply = await handleAiPrompt(promptText);
     if (aiReply) { 
       await sb.from('private_messages').insert([{ sender_id: 4, receiver_id: currentUser.user_id, content: aiReply }]);
-      await addRating(4, 1);
     }
   }
   showChatHistory(otherUserId, otherUsername); 
 };
 window.sendReport = async () => { const t = el('report-text').value.trim(); if(!t) return alert('Please write a message first.'); await sb.from('private_messages').insert([{ sender_id: currentUser.user_id, receiver_id: 1, content: '🚨 REPORT: ' + t }]); el('report-text').value = ''; alert('Report sent to Admin!'); };
-window.startNewPM = async (u) => { if(!u) u = prompt('Enter username to send a PM:'); if(!u) return; const { data: receiver } = await sb.from('app_users').select('*').eq('username', u).single(); if (receiver) { openPMPopup(u, "", receiver); const popupId = document.querySelector('.pm-popup-card').id; showReplyBox(popupId, u); } else { alert("User not found"); } };
-window.addFriend = async (u) => { const { data: target } = await sb.from('app_users').select('user_id').eq('username', u).single(); if(!target) return alert('User not found'); await sb.from('friends').insert([{ user_id: currentUser.user_id, friend_id: target.user_id }]); alert('Added!'); };
+window.startNewPM = async (u) => { if(!u) u = prompt('Enter username to send a PM:'); if(!u) return; const { data: receiver } = await sb.from('app_users').select('*').eq('username', u).single(); if (receiver) { openPMPopup(u, "", receiver); const popups = document.querySelectorAll('.pm-popup-card'); const popupId = popups[popups.length - 1].id; showReplyBox(popupId, u); } else { alert("User not found"); } };
+window.addFriend = async (u) => { const { data: target } = await sb.from('app_users').select('user_id').eq('username', u).single(); if(!target) return alert('User not found'); const { error } = await sb.from('friends').insert([{ user_id: currentUser.user_id, friend_id: target.user_id }]); if (error) return alert('Already friends or error.'); alert('Added!'); };
 window.removeFriend = async (id, name) => { await sb.from('friends').delete().eq('user_id', currentUser.user_id).eq('friend_id', id); alert('Removed!'); loadFriendsList(); };
 
-// --- Search & Leaderboard Logic ---
 el('tb-search').onclick = () => {
   openModal('🔍 Search & Leaderboard', `<div class="pm-modal-tabs"><div class="pm-modal-tab active" onclick="switchSearchTab('users', this)">Users</div><div class="pm-modal-tab" onclick="switchSearchTab('rooms', this)">Rooms</div><div class="pm-modal-tab" onclick="switchSearchTab('leaderboard', this)">Top Users</div></div><div id="search-users"><div style="display:flex; gap:8px; margin-bottom:15px;"><input type="text" id="usr-query" placeholder="Username or ID..." style="flex:1; padding:10px; border-radius:8px; border:1px solid var(--line);" /><button class="btn-sm" onclick="searchUsers()">Search</button></div><div id="usr-results"><p style="color:var(--muted);text-align:center;font-size:13px;">Search to find users.</p></div></div><div id="search-rooms" class="hidden"><div style="display:flex; gap:8px; margin-bottom:15px;"><input type="text" id="rm-query" placeholder="Room Name or ID..." style="flex:1; padding:10px; border-radius:8px; border:1px solid var(--line);" /><button class="btn-sm" onclick="searchRooms()">Search</button></div><div id="rm-results"><p style="color:var(--muted);text-align:center;font-size:13px;">Search to find rooms.</p></div></div><div id="search-leaderboard" class="hidden"><div id="lb-results"><p style="color:var(--muted);text-align:center;font-size:13px;">Loading...</p></div></div>`);
   loadLeaderboard();
@@ -611,25 +488,36 @@ window.searchUsers = async () => {
     return `<div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;"><div class="friend-info"><span class="friend-av">${avHtml}</span><span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted)">#${u.user_id}</span></div>`;
   }).join(''); 
 };
-window.searchRooms = async () => { const q = el('rm-query').value.trim(); if(!q) return; const num = parseInt(q); let query = sb.from('rooms').select('room_id, name, rating_points, is_vip').limit(10); if (!isNaN(num)) query = query.eq('room_id', num); else query = query.ilike('name', `%${q}%`); const { data, error } = await query; if (error || !data || data.length === 0) return el('rm-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No rooms found.</p>'; el('rm-results').innerHTML = data.map(r => `<div class="friend-row" onclick="joinRoom(${r.room_id})" style="cursor:pointer;"><div class="friend-info"><span class="friend-av" style="background:transparent;">${r.is_vip ? '⭐' : '🏠'}</span><span class="friend-name">${escapeHtml(r.name)}</span></div><span style="font-size:12px;color:var(--muted)">${r.rating_points} pts</span></div>`).join(''); };
-window.loadLeaderboard = async () => { 
-  const { data, error } = await sb.from('app_users').select('user_id, username, avatar_url, rating_points, is_admin, is_system, is_super_mod, id_color').neq('user_id', 1).neq('user_id', 3).neq('user_id', 4).order('rating_points', { ascending: false }).limit(20); 
-  if (error || !data) return el('lb-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">Error loading leaderboard.</p>'; 
-  el('lb-results').innerHTML = data.map((u, i) => {
+window.searchRooms = async () => { 
+  const q = el('rm-query').value.trim(); if(!q) return; 
+  const num = parseInt(q); let query = sb.from('rooms').select('room_id, name, rating_points, is_vip, is_banned_room').limit(10); 
+  if (!isNaN(num)) query = query.eq('room_id', num); else query = query.ilike('name', `%${q}%`); 
+  const { data, error } = await query; 
+  if (error || !data || data.length === 0) return el('rm-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No rooms found.</p>'; 
+  el('rm-results').innerHTML = data.map(r => {
+    const icon = r.room_id === 1 ? '💬' : r.room_id === 2 ? '⭐' : r.room_id === 3 ? '🚫' : '🏠';
+    return `<div class="friend-row" onclick="joinRoom(${r.room_id})" style="cursor:pointer;"><div class="friend-info"><span class="friend-av">${icon}</span><span class="friend-name">${escapeHtml(r.name)}</span></div><span style="font-size:12px;color:var(--muted)">${r.rating_points} pts</span></div>`;
+  }).join(''); 
+};
+window.loadLeaderboard = async () => {
+  const { data: users } = await sb.from('app_users').select('user_id, username, avatar_url, id_color, rating_points, is_admin, is_system, is_super_mod').order('rating_points', { ascending: false }).limit(10);
+  if (!users || users.length === 0) return el('lb-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No users yet.</p>';
+  el('lb-results').innerHTML = users.map((u, i) => {
     let avHtml = '🙂';
     if (u.is_admin) avHtml = `<img src="${ADMIN_GIF}" class="avatar-img">`;
     else if (u.is_system || u.is_super_mod) avHtml = `<img src="${SM_CROWN_URL}" class="avatar-img">`;
+    else if (u.user_id === 4) avHtml = '🤖';
     else avHtml = u.avatar_url||'🙂';
-    return `<div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;"><div class="friend-info" style="gap:5px;"><div class="lb-rank">${i + 1}</div><span class="friend-av" style="width:24px; height:24px; font-size:14px; margin-left:5px;">${avHtml}</span><span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted); font-weight:bold;">${u.rating_points} pts</span></div>`;
-  }).join(''); 
+    return `<div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;"><div class="lb-rank">${i+1}</div><div class="friend-info"><span class="friend-av">${avHtml}</span><span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted)">${u.rating_points} pts</span></div>`;
+  }).join('');
 };
 
-// --- View Profile Logic ---
-window.viewProfile = async (uid) => {
-  closeCtx(); const { data: u, error } = await sb.from('app_users').select('*').eq('user_id', uid).single(); if (error || !u) return alert('User not found.');
-  const { data: fr } = await sb.from('friends').select('id').eq('user_id', currentUser.user_id).eq('friend_id', uid).maybeSingle(); const isFriend = !!fr;
-  const joinDate = new Date(u.created_at).toLocaleDateString(); const verifiedHtml = u.is_verified ? '<span style="color:#16a34a; font-weight:600;">✔ Verified</span>' : '<span style="color:#ef4444; font-weight:600;">Unverified</span>';
-  
+window.viewProfile = async (userId) => {
+  const { data: u, error } = await sb.from('app_users').select('*').eq('user_id', userId).single();
+  if (error || !u) return alert('User not found.');
+  const { data: fr } = await sb.from('friends').select('id').eq('user_id', currentUser.user_id).eq('friend_id', userId).maybeSingle();
+  const isFriend = !!fr;
+  let verifiedHtml = u.is_verified ? '<span style="color:#16a34a;font-size:12px;">✔ Verified</span>' : '<span style="color:var(--muted);font-size:12px;">Unverified</span>';
   let profileAvatar = '🙂';
   if (u.is_admin) profileAvatar = `<img src="${ADMIN_GIF}" class="avatar-img">`;
   else if (u.is_system || u.is_super_mod) profileAvatar = `<img src="${SM_CROWN_URL}" class="avatar-img">`;
@@ -637,23 +525,21 @@ window.viewProfile = async (uid) => {
   else profileAvatar = u.avatar_url || '🙂';
 
   const ratingTier = getRatingTier(u.rating_points || 0);
+  const joinDate = new Date(u.created_at).toLocaleDateString();
 
   const vpCard = `<div style="text-align:center; margin-bottom:20px;"><div style="width:64px; height:64px; border-radius:50%; background:var(--dot-soft); display:inline-flex; align-items:center; justify-content:center; font-size:32px; overflow:hidden; margin-bottom:10px; border: 2px solid var(--line);">${profileAvatar}</div><div style="font-size:18px; font-weight:700; color:${u.id_color || '#000'};">${escapeHtml(u.username)}</div><div style="font-size:12px; color:var(--muted); margin-top:4px;">#${u.user_id} · ${verifiedHtml}</div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">Rating</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${u.rating_points} pts (${ratingTier})</span></div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">Gender</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${u.gender === 'female' ? 'Female' : 'Male'}</span></div></div><div class="p-row" style="border-bottom:1px solid #f4f5f7;"><span class="p-label" style="width:40%; text-align:left;">City</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${escapeHtml(u.city || 'Unknown')}</span></div></div><div class="p-row" style="border-bottom:none;"><span class="p-label" style="width:40%; text-align:left;">Join Date</span><div class="p-val" style="width:60%; justify-content:flex-end;"><span class="p-bubble">${joinDate}</span></div></div><div style="display:flex; gap:8px; margin-top:20px;">${isFriend ? `<button class="p-btn" style="background:#fee2e2; color:#ef4444; flex:1;" onclick="removeFriend(${u.user_id}, '${escapeHtml(u.username)}'); closeModal();">➖ Remove Friend</button>` : `<button class="p-btn" style="background:#eef0ff; color:var(--dot); flex:1;" onclick="addFriend('${escapeHtml(u.username)}'); closeModal();">➕ Add Friend</button>`}<button class="p-btn" style="background:var(--dot); color:#fff; flex:1;" onclick="sendDotsPrompt('${u.user_id}'); closeModal();">🪙 Send Dots</button></div><button class="p-btn" style="background:#f4f5f7; color:var(--ink); margin-top:8px;" onclick="startNewPM('${escapeHtml(u.username)}'); closeModal();">💬 Send Private Message</button>`;
   openModal(`👤 User Profile`, vpCard);
 };
 
-// --- Fine Payment Logic ---
 window.payFine = async () => {
   if(currentUser.currency < currentUser.ban_fine) return alert('Not enough dots to pay fine.');
   const treasury = await getTreasury();
   const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - currentUser.ban_fine, banned_until: new Date().toISOString(), ban_fine: 0, current_room_id: 1 }).eq('user_id', currentUser.user_id).select().single();
   await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(currentUser.ban_fine) });
   await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: currentUser.user_id, content: '✅ You have paid the fine and are now free.' }]);
-  await addRating(3, 1);
   currentUser = updatedUser; joinRoom(1);
 };
 
-// --- Dots, Services & Games Logic ---
 el('tb-dots').onclick = async () => {
   const bal = parseFloat(currentUser.currency || 0).toFixed(2); const settings = await getTreasury();
   openModal('Dots & Services', `<div style="text-align:center; margin-bottom:20px; background:var(--dot-soft); padding:15px; border-radius:12px;"><div style="font-size:32px; font-weight:800; color:var(--dot);">${bal} Ð <span style="font-size:16px; cursor:pointer; display:inline-block; transform:translateY(-2px);" onclick="refreshBalance()">🔄</span></div><div style="font-size:12px; color:var(--muted); margin-top:5px;">Your Balance</div></div><div class="pm-modal-tabs"><div class="pm-modal-tab active" onclick="switchDotsTab('dots', this)">Dots</div><div class="pm-modal-tab" onclick="switchDotsTab('shop', this)">Shop</div><div class="pm-modal-tab" onclick="switchDotsTab('broadcast', this)">Broadcast</div></div><div id="dots-tab"><div class="list-row" onclick="openTransferDotsModal()"><span style="font-size:20px;">💸</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Send Dots</div><div style="font-size:11px; color:var(--muted);">Transfer to another user (10% tax)</div></div></div><div class="list-row" onclick="openRedeemModal()"><span style="font-size:20px;">🎁</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Redeem Code</div><div style="font-size:11px; color:var(--muted);">Use a gift code</div></div></div>${new Date(currentUser.banned_until) > new Date() ? `<div class="list-row" onclick="payFine()"><span style="font-size:20px;">🔓</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Pay Ban Fine</div><div style="font-size:11px; color:var(--muted);">Pay ${currentUser.ban_fine} Ð to get unbanned</div></div></div>` : ''}<div class="list-row" onclick="openGamesModal()"><span style="font-size:20px;">🎮</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Games</div><div style="font-size:11px; color:var(--muted);">Play Roulette & RPS</div></div></div><div style="margin-top:15px; font-size:13px; font-weight:700;">Recent Transactions (24h)</div><div id="logs-view"><p style="color:var(--muted);text-align:center;font-size:12px;">Loading...</p></div></div><div id="shop-tab" class="hidden"><div class="list-row" onclick="openShopModal('gifts')"><span style="font-size:20px;">🛍️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Gifts</div><div style="font-size:11px; color:var(--muted);">Buy gifts with dots</div></div></div><div class="list-row" onclick="openShopModal('roompts')"><span style="font-size:20px;">⭐</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Room Points</div><div style="font-size:11px; color:var(--muted);">Boost current room score</div></div></div><div class="list-row" onclick="openShopModal('pmcolor')"><span style="font-size:20px;">🎨</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">PM Color</div><div style="font-size:11px; color:var(--muted);">Buy custom PM color (24h)</div></div></div><div class="list-row" onclick="openAssetsModal()"><span style="font-size:20px;">🎒</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Assets</div><div style="font-size:11px; color:var(--muted);">View, sell or send your gifts</div></div></div><div style="margin-top:15px; font-size:13px; font-weight:700;">Shop Logs (24h)</div><div id="shop-logs-view"><p style="color:var(--muted);text-align:center;font-size:12px;">Loading...</p></div></div><div id="broadcast-tab" class="hidden"><p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Send a global message to all rooms for 1 minute. Max 250 chars. Messages are queued.</p><textarea id="bc-text" style="width:100%; height:100px; border:1px solid var(--line); border-radius:8px; padding:10px; font-family:inherit; font-size:13px; resize:none;" placeholder="Your message..." maxlength="250"></textarea><button class="btn" onclick="sendBroadcast()">Send (${settings.broadcast_fee} Ð)</button></div>`);
@@ -665,44 +551,45 @@ window.loadShopLogs = async () => { const yesterday = new Date(Date.now() - 8640
 window.openShopModal = async (type) => {
   if (type === 'gifts') { const { data: gifts } = await sb.from('gifts').select('*'); openModal('🛍️ Shop - Gifts', gifts.map(g => `<div class="friend-row" style="cursor:default;"><span class="friend-av" style="background:transparent; font-size:24px;">${g.image_url}</span><div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${escapeHtml(g.name)}</div><div style="font-size:11px; color:var(--muted);">Price: ${g.price} Ð · Stock: ${g.stock}</div></div><button class="btn-sm" style="opacity:${g.stock > 0 ? 1 : 0.5}; pointer-events:${g.stock > 0 ? 'auto' : 'none'};" onclick="buyGift('${g.id}', '${escapeHtml(g.name)}', ${g.price})">Buy</button></div>`).join('')); } 
   else if (type === 'roompts') { const packages = [{ pts: 10, price: 1.00 }, { pts: 50, price: 4.50 }, { pts: 100, price: 9.00 }, { pts: 500, price: 45.00 }, { pts: 1000, price: 85.00 }]; openModal('🛍️ Shop - Room Points', packages.map(p => `<div class="friend-row" style="cursor:default;"><span class="friend-av" style="background:transparent; font-size:24px;">⭐</span><div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${p.pts} Room Points</div><div style="font-size:11px; color:var(--muted);">Applies to current room</div></div><button class="btn-sm" onclick="buyRoomPoints(${p.pts}, ${p.price})">Buy (${p.price} Ð)</button></div>`).join('')); } 
-  else if (type === 'pmcolor') { const settings = await getTreasury(); const cost = settings.pm_color_cost; const colors = [{ id: 'black', name: 'Black', price: cost }, { id: 'jade', name: 'Jade', price: cost }, { id: 'olive', name: 'Olive', price: cost }]; openModal('🛍️ Shop - PM Color', colors.map(c => `<div class="friend-row" style="cursor:default;"><span class="friend-av" style="background:linear-gradient(180deg, var(--dark) 0%, var(--mid) 50%, var(--dark) 100%); border-radius:4px; width:30px; height:30px;"></span><div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${c.name}</div><div style="font-size:11px; color:var(--muted);">Lasts 24 hours</div></div><button class="btn-sm" onclick="buyPMColor('${c.id}', '${c.name}', ${c.price})">Buy (${c.price} Ð)</button></div>`).join('')); }
+  else if (type === 'pmcolor') { const settings = await getTreasury(); const cost = settings.pm_color_cost; const colors = [{ id: 'black', name: 'Black', price: cost }, { id: 'jade', name: 'Jade', price: cost }, { id: 'olive', name: 'Olive', price: cost }]; openModal('🛍️ Shop - PM Color', colors.map(c => `<div class="friend-row" style="cursor:default;"><span class="friend-av" style="background:${c.id === 'black' ? '#1a1a1a' : c.id === 'jade' ? '#0F3D2E' : '#3A3B14'}; border-radius:4px; width:30px; height:30px;"></span><div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${c.name}</div><div style="font-size:11px; color:var(--muted);">Lasts 24 hours</div></div><button class="btn-sm" onclick="buyPMColor('${c.id}', '${c.name}', ${c.price})">Buy (${c.price} Ð)</button></div>`).join('')); }
 };
 window.buyGift = async (giftId, giftName, giftPrice) => { if (currentUser.currency < giftPrice) return alert('Not enough dots.'); const { data: g } = await sb.from('gifts').select('*').eq('id', giftId).single(); if (g.stock <= 0) return alert('Out of stock.'); const { data: inv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', currentUser.user_id).eq('gift_id', giftId).maybeSingle(); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - parseFloat(g.price) }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; await sb.from('gifts').update({ stock: g.stock - 1 }).eq('id', giftId); if (inv) await sb.from('user_inventory').update({ quantity: inv.quantity + 1 }).eq('id', inv.id); else await sb.from('user_inventory').insert([{ user_id: currentUser.user_id, gift_id: giftId, quantity: 1 }]); await addLog(`Shop: Bought ${giftName} for ${giftPrice} Ð`); alert(`Bought ${g.name}!`); openShopModal('gifts'); };
 window.buyRoomPoints = async (pts, price) => { if (currentUser.currency < price) return alert('Not enough dots.'); if (currentRoom === 3) return alert('Cannot add points to the banned room.'); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - price }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; const { data: room } = await sb.from('rooms').select('rating_points').eq('room_id', currentRoom).single(); if (room) { await sb.from('rooms').update({ rating_points: room.rating_points + pts }).eq('room_id', currentRoom); el('room-meta').textContent = 'ID: ' + currentRoom + ' · ' + (room.rating_points + pts) + ' pts'; } await addLog(`Shop: Bought ${pts} Room Points for ${price} Ð`); alert(`Successfully added ${pts} points to this room!`); openShopModal('roompts'); };
 window.buyPMColor = async (id, name, price) => { if (currentUser.currency < price) return alert('Not enough dots.'); const expiresAt = new Date(Date.now() + 86400000).toISOString(); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - price, pm_color: id, pm_color_expires: expiresAt }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; await addLog(`Shop: Bought ${name} PM Color for ${price} Ð`); alert(`Successfully bought ${name} PM color for 24 hours!`); };
 window.openAssetsModal = async () => { const { data: assets } = await sb.from('user_inventory').select('*, gifts(name, image_url, price, sell_price)').eq('user_id', currentUser.user_id); if (!assets || assets.length === 0) return openModal('🎒 Assets', '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No assets yet.</p>'); openModal('🎒 Assets', assets.map(a => `<div class="friend-row" style="cursor:default;"><span class="friend-av" style="background:transparent; font-size:24px;">${a.gifts.image_url}</span><div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${escapeHtml(a.gifts.name)} (x${a.quantity})</div><div style="font-size:11px; color:var(--muted);">Sell Value: ${a.gifts.sell_price} Ð</div></div><div style="display:flex; gap:5px;"><button class="btn-sm" onclick="sellGift('${a.id}', '${a.gift_id}', ${a.quantity})">Sell</button><button class="btn-sm" style="background:var(--dot); color:#fff;" onclick="sendGiftPrompt('${a.gift_id}', '${escapeHtml(a.gifts.name)}')">Send</button></div></div>`).join('')); };
 window.sellGift = async (inventoryId, giftId, currentQty) => { const { data: g } = await sb.from('gifts').select('*').eq('id', giftId).single(); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency + parseFloat(g.sell_price) }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; await sb.from('gifts').update({ stock: g.stock + 1 }).eq('id', giftId); if (currentQty > 1) await sb.from('user_inventory').update({ quantity: currentQty - 1 }).eq('id', inventoryId); else await sb.from('user_inventory').delete().eq('id', inventoryId); await addLog(`Shop: Sold ${g.name} for ${g.sell_price} Ð`); alert(`Sold ${g.name}! +${g.sell_price} Ð.`); openAssetsModal(); };
-window.sendGiftPrompt = async (giftId, giftName) => { const recipientId = prompt(`Send ${giftName} to (Enter User ID):`); if (!recipientId) return; if (parseInt(recipientId) === currentUser.user_id) return alert('Cannot send to yourself.'); const { data: recipient } = await sb.from('app_users').select('*').eq('user_id', parseInt(recipientId)).single(); if (!recipient) return alert('User not found.'); const { data: senderInv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', currentUser.user_id).eq('gift_id', giftId).maybeSingle(); if (!senderInv) return alert('You do not own this gift.'); if (senderInv.quantity > 1) await sb.from('user_inventory').update({ quantity: senderInv.quantity - 1 }).eq('id', senderInv.id); else await sb.from('user_inventory').delete().eq('id', senderInv.id); const { data: recInv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', recipient.user_id).eq('gift_id', giftId).maybeSingle(); if (recInv) await sb.from('user_inventory').update({ quantity: recInv.quantity + 1 }).eq('id', recInv.id); else await sb.from('user_inventory').insert([{ user_id: recipient.user_id, gift_id: giftId, quantity: 1 }]); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: recipient.user_id, content: `🎁 You received a gift from ${currentUser.username}!` }]); await addRating(3, 1); 
+window.sendGiftPrompt = async (giftId, giftName) => { const recipientId = prompt(`Send ${giftName} to (Enter User ID):`); if (!recipientId) return; if (parseInt(recipientId) === currentUser.user_id) return alert('Cannot send to yourself.'); const { data: recipient } = await sb.from('app_users').select('*').eq('user_id', parseInt(recipientId)).single(); if (!recipient) return alert('User not found.'); const { data: senderInv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', currentUser.user_id).eq('gift_id', giftId).maybeSingle(); if (!senderInv) return alert('You do not own this gift.'); if (senderInv.quantity > 1) await sb.from('user_inventory').update({ quantity: senderInv.quantity - 1 }).eq('id', senderInv.id); else await sb.from('user_inventory').delete().eq('id', senderInv.id); const { data: recInv } = await sb.from('user_inventory').select('id, quantity').eq('user_id', recipient.user_id).eq('gift_id', giftId).maybeSingle(); if (recInv) await sb.from('user_inventory').update({ quantity: recInv.quantity + 1 }).eq('id', recInv.id); else await sb.from('user_inventory').insert([{ user_id: recipient.user_id, gift_id: giftId, quantity: 1 }]); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: recipient.user_id, content: `🎁 You received a gift from ${currentUser.username}!` }]); 
   alert(`Gift sent to ${recipient.username}!`); openAssetsModal(); };
 window.openRedeemModal = () => { openModal('Redeem Code', `<label class="field">Enter Code</label><input type="text" id="rd-code" placeholder="e.g. DOTVERSE100" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);" /><button class="btn" onclick="redeemCode()">Redeem</button><div id="rd-res" style="text-align:center; margin-top:15px; font-weight:bold;"></div>`); };
 window.redeemCode = async () => { const code = el('rd-code').value.trim(); if(!code) return alert('Enter a code.'); const { data: rc } = await sb.from('redeem_codes').select('*').eq('code', code).single(); if(!rc) return el('rd-res').innerHTML = '<span style="color:#ef4444">Invalid code.</span>'; if(rc.uses >= rc.max_uses) return el('rd-res').innerHTML = '<span style="color:#ef4444">Code expired.</span>'; await sb.from('redeem_codes').update({ uses: rc.uses + 1 }).eq('code', code); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency + parseFloat(rc.reward_value) }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; await addLog(`Redeemed code for ${rc.reward_value} Ð`); el('rd-res').innerHTML = `<span style="color:#16a34a">Success! +${rc.reward_value} Ð</span>`; };
 window.openGamesModal = () => { openModal('Games', `<div class="list-row" onclick="openRouletteModal()"><span style="font-size:20px;">🎰</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Roulette</div><div style="font-size:11px; color:var(--muted);">Bet on Even/Odd, Dozens, or Exact Number</div></div></div><div class="list-row" onclick="openRPSModal()"><span style="font-size:20px;">✊</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Rock Paper Scissors</div><div style="font-size:11px; color:var(--muted);">Simple 2x payout game</div></div></div>`); };
 window.openRouletteModal = () => { openModal('Roulette', `<label class="field">Bet Type</label><select id="rl-type" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);"><option value="even">Even (2x)</option><option value="odd">Odd (2x)</option><option value="dozen1">1-12 (3x)</option><option value="dozen2">13-24 (3x)</option><option value="dozen3">25-36 (3x)</option><option value="number">Exact Number 0-36 (36x)</option></select><div id="rl-num-wrap" class="hidden" style="margin-top:10px;"><label class="field">Number (0-36)</label><input type="number" id="rl-num" min="0" max="36" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);" /></div><label class="field">Bet Amount (Ð)</label><input type="number" id="rl-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);" /><button class="btn" onclick="playRoulette()">Spin 🎲</button><div id="rl-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); document.getElementById('rl-type').addEventListener('change', (e) => document.getElementById('rl-num-wrap').classList.toggle('hidden', e.target.value !== 'number')); };
 window.playRoulette = async () => { const type = document.getElementById('rl-type').value; const num = document.getElementById('rl-num') ? parseInt(document.getElementById('rl-num').value) : 0; const amt = parseFloat(document.getElementById('rl-amt').value); if(!amt || amt <= 0) return alert('Invalid bet amount.'); if(amt > currentUser.currency) return alert('Not enough dots.'); if(type === 'number' && (isNaN(num) || num < 0 || num > 36)) return alert('Invalid number (0-36).'); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; const treasury = await getTreasury(); const result = Math.floor(Math.random() * 37); let win = false, multiplier = 0; if (type === 'even' && result !== 0 && result % 2 === 0) { win = true; multiplier = 2; } else if (type === 'odd' && result % 2 === 1) { win = true; multiplier = 2; } else if (type === 'dozen1' && result >= 1 && result <= 12) { win = true; multiplier = 3; } else if (type === 'dozen2' && result >= 13 && result <= 24) { win = true; multiplier = 3; } else if (type === 'dozen3' && result >= 25 && result <= 36) { win = true; multiplier = 3; } else if (type === 'number' && result === num) { win = true; multiplier = 36; } let resultText = `Result: ${result}. You ${win ? 'WON' : 'LOST'}.`; if (win) { const payout = amt * multiplier; const { data: finalUser } = await sb.from('app_users').update({ currency: currentUser.currency + payout }).eq('user_id', currentUser.user_id).select().single(); currentUser = finalUser; await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - payout }); resultText += ` +${payout.toFixed(2)} Ð`; await addLog(`Roulette: Won ${payout.toFixed(2)} Ð`); } else { await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + amt }); await addLog(`Roulette: Lost ${amt} Ð`); } document.getElementById('rl-res').textContent = resultText; document.getElementById('rl-res').style.color = win ? '#16a34a' : '#ef4444'; };
-window.openRPSModal = () => { openModal('Rock Paper Scissors', `<p style="font-size:13px; color:var(--muted); text-align:center; margin-bottom:15px;">Choose your weapon. Win 2x your bet.</p><label class="field">Bet Amount (Ð)</label><input type="number" id="rps-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); margin-bottom:15px;" /><div style="display:flex; gap:10px;"><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playPMS('rock')">✊</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button></div><div id="rps-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); };
+window.openRPSModal = () => { openModal('Rock Paper Scissors', `<p style="font-size:13px; color:var(--muted); text-align:center; margin-bottom:15px;">Choose your weapon. Win 2x your bet.</p><label class="field">Bet Amount (Ð)</label><input type="number" id="rps-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); margin-bottom:15px;" /><div style="display:flex; gap:10px;"><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('rock')">✊</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button></div><div id="rps-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); };
 window.playRPS = async (choice) => { const amt = parseFloat(document.getElementById('rps-amt').value); if(!amt || amt <= 0) return alert('Invalid bet amount.'); if(amt > currentUser.currency) return alert('Not enough dots.'); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; const treasury = await getTreasury(); const choices = ['rock', 'paper', 'scissors']; const botChoice = choices[Math.floor(Math.random() * 3)]; let win = false, tie = false; if (choice === botChoice) tie = true; else if ((choice === 'rock' && botChoice === 'scissors') || (choice === 'paper' && botChoice === 'rock') || (choice === 'scissors' && botChoice === 'paper')) win = true; const icons = { rock: '✊', paper: '✋', scissors: '✌️' }; let resultText = `You: ${icons[choice]} | Bot: ${icons[botChoice]}<br>`; if (tie) { resultText += 'TIE! Bet returned.'; const { data: finalUser } = await sb.from('app_users').update({ currency: currentUser.currency + amt }).eq('user_id', currentUser.user_id).select().single(); currentUser = finalUser; } else if (win) { const payout = amt * 2; const { data: finalUser } = await sb.from('app_users').update({ currency: currentUser.currency + payout }).eq('user_id', currentUser.user_id).select().single(); currentUser = finalUser; await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - payout }); resultText += `WIN! +${payout.toFixed(2)} Ð`; await addLog(`RPS: Won ${payout.toFixed(2)} Ð`); } else { await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + amt }); await addLog(`RPS: Lost ${amt} Ð`); resultText += 'LOST!'; } const resEl = document.getElementById('rps-res'); resEl.innerHTML = resultText; resEl.style.color = tie ? '#ca8a04' : (win ? '#16a34a' : '#ef4444'); };
 window.openTransferDotsModal = () => { openModal('Send Dots',`<label class="field">Recipient ID Number</label><input type="number" id="td-to" placeholder="e.g. 2" /><label class="field">Amount (Ð)</label><input type="number" id="td-amt" placeholder="e.g. 1.50" step="0.01" min="0.01" /><p style="font-size:12px;color:var(--muted);margin-top:5px;">10% tax applies. Receiver gets 90%.</p><button class="btn" onclick="transferDots()">Send</button>`); };
-window.transferDots = async () => { const toId = parseInt(el('td-to').value); const amt = parseFloat(el('td-amt').value); if(!toId || !amt || amt <= 0) return alert('Invalid input.'); if(amt > currentUser.currency) return alert('Not enough dots.'); if(toId === currentUser.user_id) return alert('Cannot send to yourself.'); const { data: receiver } = await sb.from('app_users').select('*').eq('user_id', toId).single(); if (!receiver) return alert('Receiver not found.'); const tax = amt * 0.1; const receiverGets = amt - tax; const treasury = await getTreasury(); const { data: updatedSender } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single(); await sb.from('app_users').update({ currency: receiver.currency + receiverGets }).eq('user_id', toId); await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) + tax }); currentUser = updatedSender; await addLog(`Sent ${amt} Ð to ID #${toId}`); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: toId, content: `💸 You received ${receiverGets.toFixed(2)} Ð from ${currentUser.username}!` }]); await addRating(3, 1); 
+window.transferDots = async () => { const toId = parseInt(el('td-to').value); const amt = parseFloat(el('td-amt').value); if(!toId || !amt || amt <= 0) return alert('Invalid input.'); if(amt > currentUser.currency) return alert('Not enough dots.'); if(toId === currentUser.user_id) return alert('Cannot send to yourself.'); const { data: receiver } = await sb.from('app_users').select('*').eq('user_id', toId).single(); if (!receiver) return alert('Receiver not found.'); const tax = amt * 0.1; const receiverGets = amt - tax; const treasury = await getTreasury(); const { data: updatedSender } = await sb.from('app_users').update({ currency: currentUser.currency - amt }).eq('user_id', currentUser.user_id).select().single(); await sb.from('app_users').update({ currency: receiver.currency + receiverGets }).eq('user_id', toId); await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) + tax }); currentUser = updatedSender; await addLog(`Sent ${amt} Ð to ID #${toId}`); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: toId, content: `💸 You received ${receiverGets.toFixed(2)} Ð from ${currentUser.username}!` }]); 
   alert(`Success! Sent ${amt}Ð to ID #${toId}. They received ${receiverGets.toFixed(2)}Ð.`); closeModal(); el('tb-dots').click(); };
 window.sendDotsPrompt = (id) => { openTransferDotsModal(); el('td-to').value = id; };
 window.refreshBalance = async (e) => { if(e) e.stopPropagation(); const { data } = await sb.from('app_users').select('currency').eq('user_id', currentUser.user_id).single(); if(data) { currentUser.currency = data.currency; const modalTitle = el('modal-root').querySelector('h3'); if (modalTitle && modalTitle.textContent === 'Dots & Services') el('tb-dots').click(); } };
 window.sendBroadcast = async () => { const text = el('bc-text').value.trim(); if (!text) return alert('Enter a message.'); const settings = await getTreasury(); const fee = parseFloat(settings.broadcast_fee); if (currentUser.currency < fee) return alert(`Broadcast costs ${fee} Ð. Not enough dots.`); if (!confirm(`This will cost ${fee} Ð. Proceed?`)) return; const { data: active } = await sb.from('broadcasts').select('expires_at').gt('expires_at', new Date().toISOString()).order('expires_at', { ascending: false }).limit(1); let expiresAt = new Date(Date.now() + 60000).toISOString(); if (active && active.length > 0) { expiresAt = new Date(new Date(active[0].expires_at).getTime() + 60000).toISOString(); } await sb.from('broadcasts').insert([{ content: text, sender_username: currentUser.username, expires_at: expiresAt }]); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - fee }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; await updateTreasury({ fund_balance: parseFloat(settings.fund_balance) + fee }); await addLog(`Broadcast: Sent message for ${fee} Ð`); alert('Broadcast sent! It will appear shortly.'); closeModal(); el('tb-dots').click(); };
 
-// --- Profile Logic ---
 el('tb-profile').onclick = () => {
   const isMaster = currentUser.is_admin;
   let avHtml = isMaster ? `<img src="${ADMIN_GIF}" class="avatar-img">` : `<select id="p-avatar" class="p-select" onchange="window._av=this.value">${AVATARS.map(a => `<option value="${a}" ${currentUser.avatar_url===a?'selected':''}>${a}</option>`).join('')}</select>`;
   let coHtml = `<div class="p-color-grid" id="p-color-grid">${COLORS.map(c => `<span class="p-color-opt ${currentUser.id_color===c?'selected':''}" style="background:${c}" onclick="selColor('${c}', this)"></span>`).join('')}</div>`;
   let genderHtml = `<select id="p-gender" class="p-select" onchange="window._gender=this.value"><option value="male" ${currentUser.gender==='male'?'selected':''}>Male</option><option value="female" ${currentUser.gender==='female'?'selected':''}>Female</option></select>`;
   let verifyHtml = ''; if (currentUser.is_verified) verifyHtml = `<span class="p-bubble" style="background:#dcfce7;color:#16a34a;">Verified ✔</span>`; else if (currentUser.verification_requested) verifyHtml = `<span class="p-bubble" style="background:#fef9c3;color:#ca8a04;">Pending...</span>`; else verifyHtml = `<button class="p-btn p-btn-save" style="width:100px;font-size:12px;margin:0;" onclick="requestVerification()">Request</button>`;
-  openModal('🖊️ Profile',`<div style="max-width:320px;margin:0 auto;"><div class="p-row"><span class="p-label">Username</span><div class="p-val"><input type="text" id="p-username" class="p-input" value="${escapeHtml(currentUser.username)}"></div></div><div class="p-row"><span class="p-label">Password</span><div class="p-val"><input type="password" id="p-password" class="p-input" placeholder="••••••"></div></div><div class="p-row"><span class="p-label">Gender</span><div class="p-val">${genderHtml}</div></div><div class="p-row"><span class="p-label">City</span><div class="p-val"><input type="text" id="p-city" class="p-input" value="${escapeHtml(currentUser.city||'')}"></div></div><div class="p-row"><span class="p-label">Avatar</span><div class="p-val">${avHtml}</div></div><div class="p-row"><span class="p-label">Name color</span><div class="p-val">${coHtml}</div></div><div class="p-row"><span class="p-label">Verify ID</span><div class="p-val">${verifyHtml}</div></div><div class="p-row" style="border-bottom:none;"><span class="p-label">ID Number</span><div class="p-val"><span class="p-bubble">#${currentUser.user_id}</span></div></div><div class="p-btn-row"><button class="p-btn p-btn-logout" onclick="location.reload()">Logout</button><button class="p-btn p-btn-save" onclick="saveProfile()">Save Changes</button></div></div>`);
+  openModal('👤 Your Profile',`<div style="max-width:320px;margin:0 auto;"><div class="p-row"><span class="p-label">Username</span><div class="p-val"><input type="text" id="p-username" class="p-input" value="${escapeHtml(currentUser.username)}"></div></div><div class="p-row"><span class="p-label">Old Password</span><div class="p-val"><input type="password" id="p-oldpass" class="p-input" placeholder="for password change"></div></div><div class="p-row"><span class="p-label">New Password</span><div class="p-val"><input type="password" id="p-password" class="p-input" placeholder="••••••"></div></div><div class="p-row"><span class="p-label">Gender</span><div class="p-val">${genderHtml}</div></div><div class="p-row"><span class="p-label">City</span><div class="p-val"><input type="text" id="p-city" class="p-input" value="${escapeHtml(currentUser.city||'')}"></div></div><div class="p-row"><span class="p-label">Avatar</span><div class="p-val">${avHtml}</div></div><div class="p-row"><span class="p-label">Name color</span><div class="p-val">${coHtml}</div></div><div class="p-row"><span class="p-label">Verify ID</span><div class="p-val">${verifyHtml}</div></div><div class="p-row" style="border-bottom:none;"><span class="p-label">ID Number</span><div class="p-val"><span class="p-bubble">#${currentUser.user_id}</span></div></div><div class="p-btn-row"><button class="p-btn p-btn-logout" onclick="location.reload()">Logout</button><button class="p-btn p-btn-save" onclick="saveProfile()">Save Changes</button></div></div>`);
   window._av = currentUser.avatar_url || '🙂'; window._co = currentUser.id_color || '#000000'; window._gender = currentUser.gender || 'male';
 };
 window.requestVerification = async () => { const { data } = await sb.from('app_users').update({ verification_requested: true }).eq('user_id', currentUser.user_id).select().single(); currentUser = data; alert('Request sent to Admin!'); el('tb-profile').click(); };
 window.selColor = (c, e) => { window._co = c; e.parentElement.querySelectorAll('.p-color-opt').forEach(x => x.classList.remove('selected')); e.classList.add('selected'); };
-window.saveProfile = async () => { let finalAvatar = window._av; if(currentUser.is_admin) finalAvatar = ADMIN_GIF; const newUsername = el('p-username').value.trim(); const newPassword = el('p-password').value; if(newUsername.length < 3 || newUsername.length > 14) return alert('Username must be 3-14 chars.'); if(newPassword && (newPassword.length < 3 || newPassword.length > 14)) return alert('Password must be 3-14 chars.'); const updates = { username: newUsername, gender: window._gender, city: el('p-city').value.trim(), id_color: window._co, avatar_url: finalAvatar }; if(newPassword) updates.password = newPassword; const { data } = await sb.from('app_users').update(updates).eq('user_id', currentUser.user_id).select().single(); currentUser = data; userCache[currentUser.user_id] = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, _ts: Date.now() }; alert('Saved successfully!'); closeModal(); };
+window.saveProfile = async () => { let finalAvatar = window._av; if(currentUser.is_admin) finalAvatar = ADMIN_GIF; const newUsername = el('p-username').value.trim(); const oldPassword = el('p-oldpass') ? el('p-oldpass').value : ''; const newPassword = el('p-password').value; if(newUsername.length < 3 || newUsername.length > 14) return alert('Username must be 3-14 chars.'); if(newPassword && (newPassword.length < 3 || newPassword.length > 14)) return alert('Password must be 3-14 chars.'); if(newPassword && !oldPassword) return alert('Enter your current password too.');
+  if(newPassword) { const { error: passErr } = await sb.rpc('change_password', { p_user_id: currentUser.user_id, p_old_password: oldPassword, p_new_password: newPassword }); if (passErr) return alert('Password error: ' + passErr.message); }
+  const updates = { username: newUsername, gender: window._gender, city: el('p-city').value.trim(), id_color: window._co, avatar_url: finalAvatar };
+  const { data } = await sb.from('app_users').update(updates).eq('user_id', currentUser.user_id).select().single(); currentUser = data; userCache[currentUser.user_id] = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, _ts: Date.now() }; alert('Saved successfully!'); closeModal(); };
 
-// --- Rooms & My Rooms Logic ---
 el('tb-rooms').onclick = async () => {
   const { data } = await sb.from('rooms').select('*').order('rating_points', { ascending: false });
   let rows = '<button class="btn" style="margin-bottom:15px;" onclick="showMyRooms()">👑 My Rooms</button>';
@@ -727,13 +614,11 @@ window.showMyRooms = async () => {
 };
 window.createRoomPrompt = async () => { const name = prompt('Enter new room name:'); if(!name) return; if(currentUser.currency < 10) return alert('Not enough dots. You need 10 Ð to create a room.'); const { data: updatedUser } = await sb.from('app_users').update({ currency: currentUser.currency - 10 }).eq('user_id', currentUser.user_id).select().single(); currentUser = updatedUser; const treasury = await getTreasury(); await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + 10 }); const { data: newRoom, error: roomErr } = await sb.from('rooms').insert([{ name: name, creator_id: currentUser.user_id, owner_id: currentUser.user_id, is_system: false, is_vip: false, is_banned_room: false, rating_points: 0 }]).select().single(); if (roomErr) return alert('Error creating room: ' + roomErr.message); alert('Room created successfully!'); closeModal(); joinRoom(newRoom.room_id); };
 
-// --- Room Info Logic ---
 el('tb-roominfo').onclick = async () => { const { data: room, error } = await sb.from('rooms').select('*').eq('room_id', currentRoom).single(); if (error || !room) return alert('Could not fetch room info.'); const { data: creator } = await sb.from('app_users').select('username').eq('user_id', room.creator_id).single(); const { data: owner } = await sb.from('app_users').select('username').eq('user_id', room.owner_id).single(); const { data: mods } = await sb.from('room_moderators').select('user_id').eq('room_id', currentRoom); let modsHtml = '<p style="color:var(--muted);font-size:12px;">None</p>'; if (mods && mods.length > 0) { const modIds = mods.map(m => m.user_id); const { data: modUsers } = await sb.from('app_users').select('user_id, username').in('user_id', modIds); if (modUsers && modUsers.length > 0) { modsHtml = modUsers.map(m => `<div class="list-row" style="cursor:default; border-bottom:none;"><span style="flex:1; font-weight:600;">${escapeHtml(m.username)} (ID: ${m.user_id})</span>${(room.creator_id === currentUser.user_id || room.owner_id === currentUser.user_id) ? `<button class="act-btn danger" onclick="removeModerator(${m.user_id})">➖</button>` : ''}</div>`).join(''); } } const canManage = room.creator_id === currentUser.user_id || room.owner_id === currentUser.user_id; const isCreator = room.creator_id === currentUser.user_id; let html = `<div class="list-row"><span style="flex:1;color:var(--muted);">Name</span><b>${escapeHtml(room.name)}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Room ID</span><b>#${room.room_id}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Score</span><b>${room.rating_points} pts</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Creator</span><b>${creator ? escapeHtml(creator.username) : 'Unknown'}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Owner</span><b>${owner ? escapeHtml(owner.username) : 'Unknown'}</b></div><div style="margin-top:15px; font-size:13px; font-weight:700;">Moderators:</div><div style="border:1px solid var(--line); border-radius:8px; padding:5px 10px; margin-bottom:15px;">${modsHtml}</div>`; if (canManage) html += `<label class="field">Add Moderator (Enter User ID)</label><div style="display:flex; gap:10px;"><input type="number" id="mod-id-input" placeholder="e.g. 5" style="flex:1;" /><button class="btn btn-sm" onclick="addModerator()">Add</button></div>`; if (isCreator) html += `<label class="field" style="margin-top:20px;">Transfer Ownership (Enter User ID)</label><div style="display:flex; gap:10px;"><input type="number" id="owner-id-input" placeholder="e.g. 5" style="flex:1;" /><button class="btn btn-sm btn-danger" onclick="transferOwnership()">Transfer</button></div>`; openModal('ℹ️ Room Info', html); };
 window.addModerator = async () => { const id = parseInt(el('mod-id-input').value); if (!id) return alert('Enter a valid ID.'); const { data: target } = await sb.from('app_users').select('user_id').eq('user_id', id).single(); if (!target) return alert('User not found.'); const { error } = await sb.from('room_moderators').insert([{ room_id: currentRoom, user_id: id }]); if (error) return alert('Error or user is already a mod.'); alert('Moderator added!'); el('tb-roominfo').click(); };
 window.removeModerator = async (uid) => { if (!confirm('Remove this moderator?')) return; await sb.from('room_moderators').delete().eq('room_id', currentRoom).eq('user_id', uid); alert('Moderator removed!'); el('tb-roominfo').click(); };
 window.transferOwnership = async () => { const id = parseInt(el('owner-id-input').value); if (!id) return alert('Enter a valid ID.'); if (id === currentUser.user_id) return alert('You are already the owner.'); const { data: target } = await sb.from('app_users').select('user_id').eq('user_id', id).single(); if (!target) return alert('User not found.'); const { error } = await sb.from('rooms').update({ owner_id: id }).eq('room_id', currentRoom); if (error) return alert('Error transferring ownership.'); alert('Ownership transferred!'); el('tb-roominfo').click(); };
 
-// --- Admin Panel Logic (Redesigned) ---
 el('tb-admin').onclick = async () => {
   if (!currentUser.is_admin && !currentUser.is_super_mod) return;
   
@@ -759,7 +644,7 @@ el('tb-admin').onclick = async () => {
     contentHtml += `<div id="admin-sm_ban"><div class="admin-bubble"><div class="admin-bubble-title">🔨 Ban User</div><div class="admin-bubble-row"><input type="number" id="sm-ban-id" placeholder="User ID" style="flex:1;"><input type="number" id="sm-ban-mins" placeholder="Mins" style="width:60px;"><input type="number" id="sm-ban-fine" placeholder="Fine Ð" style="width:70px;"><button onclick="adminBanAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔓 Unban User</div><div class="admin-bubble-row"><input type="number" id="sm-unban-id" placeholder="User ID" style="flex:1;"><button class="success" onclick="adminUnbanAction()">OK</button></div></div></div>`;
   } else {
     contentHtml += `<div id="admin-requests"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading requests...</p></div>`;
-    contentHtml += `<div id="admin-users" class="hidden"><div class="admin-bubble"><div class="admin-bubble-title">🔨 Ban User</div><div class="admin-bubble-row"><input type="number" id="ban-id" placeholder="User ID" style="flex:1;"><input type="number" id="ban-mins" placeholder="Mins" style="width:60px;"><input type="number" id="ban-fine" placeholder="Fine Ð" style="width:70px;"><button onclick="adminBanAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔓 Unban User</div><div class="admin-bubble-row"><input type="number" id="unban-id" placeholder="User ID" style="flex:1;"><button class="success" onclick="adminUnbanAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">⭐ Add Rating</div><div class="admin-bubble-row"><input type="number" id="addrate-id" placeholder="User ID" style="flex:1;"><input type="number" id="addrate-amt" placeholder="Points" style="width:80px;"><button class="success" onclick="adminAddRateAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔻 Cut Rating</div><div class="admin-bubble-row"><input type="number" id="cutrate-id" placeholder="User ID" style="flex:1;"><input type="number" id="cutrate-amt" placeholder="Points" style="width:80px;"><button class="danger" onclick="adminCutRateAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔑 Reset Password</div><div class="admin-bubble-row"><input type="number" id="reset-id" placeholder="User ID" style="flex:1;"><button onclick="adminResetPassAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🪙 Adjust Dots</div><div class="admin-bubble-row"><input type="number" id="dots-id" placeholder="User ID" style="flex:1;"><input type="number" id="dots-amt" placeholder="+/- Ð" style="width:80px;"><button onclick="adminAdjustDotsAction()">OK</button></div></div></div>`;
+    contentHtml += `<div id="admin-users" class="hidden"><div class="admin-bubble"><div class="admin-bubble-title">🔨 Ban User</div><div class="admin-bubble-row"><input type="number" id="ban-id" placeholder="User ID" style="flex:1;"><input type="number" id="ban-mins" placeholder="Mins" style="width:60px;"><input type="number" id="ban-fine" placeholder="Fine Ð" style="width:70px;"><button onclick="adminBanAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔓 Unban User</div><div class="admin-bubble-row"><input type="number" id="unban-id" placeholder="User ID" style="flex:1;"><button class="success" onclick="adminUnbanAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">⭐ Add Rating</div><div class="admin-bubble-row"><input type="number" id="addrate-id" placeholder="User ID" style="flex:1;"><input type="number" id="addrate-amt" placeholder="Points" style="width:80px;"><button class="success" onclick="adminAddRateAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔻 Cut Rating</div><div class="admin-bubble-row"><input type="number" id="cutrate-id" placeholder="User ID" style="flex:1;"><input type="number" id="cutrate-amt" placeholder="Points" style="width:80px;"><button class="danger" onclick="adminCutRateAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🔑 Reset Password</div><div class="admin-bubble-row"><input type="number" id="reset-id" placeholder="User ID" style="flex:1;"><input type="number" id="reset-pass" placeholder="New Pass" style="width:80px;"><button onclick="adminResetPassAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🪙 Adjust Dots</div><div class="admin-bubble-row"><input type="number" id="dots-id" placeholder="User ID" style="flex:1;"><input type="number" id="dots-amt" placeholder="+/- Ð" style="width:80px;"><button onclick="adminAdjustDotsAction()">OK</button></div></div></div>`;
     contentHtml += `<div id="admin-rooms" class="hidden"><div class="admin-bubble"><div class="admin-bubble-title">🧹 Clear Room Messages</div><div class="admin-bubble-row"><input type="number" id="clear-id" placeholder="Room ID" style="flex:1;"><button class="danger" onclick="adminClearRoomAction()">OK</button></div></div><div class="admin-bubble"><div class="admin-bubble-title">🗑️ Delete Room</div><div class="admin-bubble-row"><input type="number" id="del-id" placeholder="Room ID" style="flex:1;"><button class="danger" onclick="adminDeleteRoomAction()">OK</button></div></div></div>`;
     contentHtml += `<div id="admin-economy" class="hidden">
       <div class="admin-bubble"><div class="admin-bubble-title">⚙️ General Settings</div><div class="admin-bubble-row"><input type="number" id="bc-fee" placeholder="Broadcast Fee" value="${treasury.broadcast_fee}" style="flex:1;"><button onclick="adminEconomyAction()">Save</button></div></div>
@@ -790,48 +675,68 @@ async function loadAdminRequests() {
   if (reports && reports.length > 0) {
     html += reports.map(r => `<div class="list-row" style="cursor:default; flex-direction:column; align-items:flex-start;"><span style="font-weight:600;">From: ${r.sender ? r.sender.username : 'Unknown'}</span><span style="font-size:12px; color:var(--muted); margin-top:4px;">${escapeHtml(r.content.replace('🚨 REPORT: ', ''))}</span></div>`).join('');
   } else { html += '<p style="color:var(--muted);font-size:12px;">No reports.</p>'; }
-  if(el('admin-requests')) el('admin-requests').innerHTML = html;
+  el('admin-requests').innerHTML = html;
 }
+window.adminVerifyAction = async (id) => { await sb.from('app_users').update({ is_verified: true, verification_requested: false }).eq('user_id', id); loadAdminRequests(); };
+window.adminRejectVerifyAction = async (id) => { await sb.from('app_users').update({ verification_requested: false }).eq('user_id', id); loadAdminRequests(); };
+window.adminBanAction = async () => { const id = el('ban-id') ? el('ban-id').value : el('sm-ban-id').value; const mins = el('ban-mins') ? el('ban-mins').value : el('sm-ban-mins').value; const fine = el('ban-fine') ? el('ban-fine').value : el('sm-ban-fine').value; if(!id || !mins) return alert('User ID and minutes required.'); const bannedUntil = new Date(Date.now() + mins * 60000).toISOString(); const { error } = await sb.from('app_users').update({ banned_until: bannedUntil, ban_fine: parseFloat(fine || 0), current_room_id: 3 }).eq('user_id', parseInt(id)); if (error) return alert('Error: ' + error.message); alert('User banned!'); };
+window.adminUnbanAction = async () => { const id = el('unban-id') ? el('unban-id').value : el('sm-unban-id').value; if(!id) return alert('User ID required.'); await sb.from('app_users').update({ banned_until: '1970-01-01 00:00:00+00', ban_fine: 0, current_room_id: 1 }).eq('user_id', parseInt(id)); alert('User unbanned!'); };
+window.adminAddRateAction = async () => { const id = el('addrate-id').value; const amt = parseInt(el('addrate-amt').value); if(!id || !amt) return alert('User ID and points required.'); const { data: u } = await sb.from('app_users').select('rating_points').eq('user_id', parseInt(id)).single(); if (u) await sb.from('app_users').update({ rating_points: u.rating_points + amt }).eq('user_id', parseInt(id)); alert('Rating added!'); };
+window.adminCutRateAction = async () => { const id = el('cutrate-id').value; const amt = parseInt(el('cutrate-amt').value); if(!id || !amt) return alert('User ID and points required.'); const { data: u } = await sb.from('app_users').select('rating_points').eq('user_id', parseInt(id)).single(); if (u) await sb.from('app_users').update({ rating_points: Math.max(0, u.rating_points - amt) }).eq('user_id', parseInt(id)); alert('Rating cut!'); };
+window.adminResetPassAction = async () => { const id = el('reset-id').value; const newPass = el('reset-pass').value; if(!id || !newPass) return alert('User ID and new password required.'); const adminPass = prompt('For security, enter your own (admin) password:'); if(!adminPass) return; const { error } = await sb.rpc('admin_reset_password', { p_target_id: parseInt(id), p_admin_id: currentUser.user_id, p_admin_pass: adminPass, p_new_password: newPass }); if (error) return alert('Error: ' + error.message); alert('Password reset!'); };
+window.adminAdjustDotsAction = async () => { const id = el('dots-id').value; const amt = parseFloat(el('dots-amt').value); if(!id || isNaN(amt)) return alert('User ID and amount required.'); const { data: u } = await sb.from('app_users').select('currency').eq('user_id', parseInt(id)).single(); if (u) await sb.from('app_users').update({ currency: parseFloat(u.currency) + amt }).eq('user_id', parseInt(id)); alert('Dots adjusted!'); };
+window.adminClearRoomAction = async () => { const id = el('clear-id').value; if(!id) return alert('Room ID required.'); if (!confirm('Delete ALL messages in this room?')) return; await sb.from('public_messages').delete().eq('room_id', parseInt(id)); alert('Room cleared!'); };
+window.adminDeleteRoomAction = async () => { const id = el('del-id').value; if(!id) return alert('Room ID required.'); if (parseInt(id) <= 3) return alert('Cannot delete system rooms (1-3).'); if (!confirm('Delete this room?')) return; const { error } = await sb.from('rooms').delete().eq('room_id', parseInt(id)); if (error) return alert('Error: ' + error.message); alert('Room deleted!'); };
+window.adminEconomyAction = async () => { const fee = el('bc-fee').value; if(!fee) return alert('Enter a fee.'); await updateTreasury({ broadcast_fee: parseFloat(fee) }); alert('Saved!'); };
+window.adminVipFeeAction = async () => { const fee = el('vip-fee').value; if(!fee) return alert('Enter a fee.'); await updateTreasury({ vip_entry_fee: parseFloat(fee) }); alert('Saved!'); };
+window.adminPmColorCostAction = async () => { const cost = el('pm-color-cost').value; if(!cost) return alert('Enter a cost.'); await updateTreasury({ pm_color_cost: parseFloat(cost) }); alert('Saved!'); };
+window.adminMintAction = async () => { const amt = el('mint-amt').value; const target = el('mint-target').value; if(!amt) return alert('Enter an amount.'); const settings = await getTreasury(); const updates = target === 'fund' ? { fund_balance: parseFloat(settings.fund_balance) + parseFloat(amt) } : { tax_balance: parseFloat(settings.tax_balance) + parseFloat(amt) }; await updateTreasury(updates); alert('Minted!'); el('tb-admin').click(); };
+window.adminBurnAction = async () => { const amt = el('burn-amt').value; const target = el('burn-target').value; if(!amt) return alert('Enter an amount.'); const settings = await getTreasury(); const updates = target === 'fund' ? { fund_balance: parseFloat(settings.fund_balance) - parseFloat(amt) } : { tax_balance: parseFloat(settings.tax_balance) - parseFloat(amt) }; await updateTreasury(updates); alert('Burned!'); el('tb-admin').click(); };
+window.adminCreateCodeAction = async () => { const code = el('rc-code').value.trim(); const val = el('rc-val').value; const uses = el('rc-uses').value; if(!code || !val || !uses) return alert('All fields required.'); const { error } = await sb.from('redeem_codes').insert([{ code: code, reward_value: parseFloat(val), max_uses: parseInt(uses), uses: 0 }]); if (error) return alert('Error: ' + error.message); alert('Code created!'); };
 async function loadAdminGifts() {
-  const { data: gifts } = await sb.from('gifts').select('*');
-  let html = gifts.map(g => `<div class="admin-gift-row"><span class="icon">${g.image_url}</span><input type="number" id="g-buy-${g.id}" value="${g.price}" placeholder="Buy"><input type="number" id="g-sell-${g.id}" value="${g.sell_price}" placeholder="Sell"><input type="number" id="g-stock-${g.id}" value="${g.stock}" placeholder="Stock"><button onclick="adminUpdateGiftAction('${g.id}')">Update</button></div>`).join('');
-  if(el('admin-gifts-list')) el('admin-gifts-list').innerHTML = html;
+  const { data: gifts } = await sb.from('gifts').select('*').order('name');
+  if (!gifts || gifts.length === 0) { if (el('admin-gifts-list')) el('admin-gifts-list').innerHTML = '<p style="color:var(--muted);font-size:12px;">No gifts.</p>'; return; }
+  el('admin-gifts-list').innerHTML = gifts.map(g => `<div class="admin-gift-row"><span class="icon">${g.image_url}</span><span style="flex:1; font-size:13px;">${escapeHtml(g.name)}</span><input type="number" value="${g.price}" onchange="adminUpdateGiftPrice('${g.id}', this.value)"><input type="number" value="${g.stock}" onchange="adminUpdateGiftStock('${g.id}', this.value)"></div>`).join('');
 }
+window.adminUpdateGiftPrice = async (id, price) => { await sb.from('gifts').update({ price: parseFloat(price), sell_price: parseFloat(price) * 0.8 }).eq('id', id); };
+window.adminUpdateGiftStock = async (id, stock) => { await sb.from('gifts').update({ stock: parseInt(stock) }).eq('id', id); };
 async function loadAdminSMs() {
-  const { data: sms } = await sb.from('app_users').select('user_id, username, avatar_url').eq('is_super_mod', true);
-  let html = '<div style="font-size:14px; font-weight:bold; margin-bottom:10px;">Current Super Mods</div>';
-  if (sms && sms.length > 0) {
-    html += sms.map(u => `<div class="friend-row" style="cursor:default;"><div class="friend-info"><span class="friend-av"><img src="${SM_CROWN_URL}" class="avatar-img"></span><span class="friend-name">${escapeHtml(u.username)} (#${u.user_id})</span></div><button class="btn-sm" style="background:#ef4444;color:#fff;" onclick="adminRemoveSMAction(${u.user_id})">Remove</button></div>`).join('');
-  } else { html += '<p style="color:var(--muted);font-size:12px;">No Super Mods yet.</p>'; }
-  if(el('sm-list')) el('sm-list').innerHTML = html;
+  const { data: sms } = await sb.from('app_users').select('user_id, username').eq('is_super_mod', true).neq('user_id', 4);
+  let html = '';
+  if (sms && sms.length > 0) { html = sms.map(s => `<div class="friend-row" style="cursor:default;"><div class="friend-info"><span class="friend-av">🛡️</span><span class="friend-name">${escapeHtml(s.username)} (#${s.user_id})</span></div><div class="friend-actions"><button class="act-btn danger" onclick="adminRemoveSMAction(${s.user_id})">➖</button></div></div>`).join(''); } 
+  else { html = '<p style="color:var(--muted);font-size:12px;">No super mods.</p>'; }
+  if (el('sm-list')) el('sm-list').innerHTML = html;
 }
-window.adminVerifyAction = async (id) => { await sb.from('app_users').update({ is_verified: true, verification_requested: false }).eq('user_id', id); alert('User verified!'); loadAdminRequests(); };
-window.adminRejectVerifyAction = async (id) => { await sb.from('app_users').update({ verification_requested: false }).eq('user_id', id); alert('Request rejected.'); loadAdminRequests(); };
-window.adminBanAction = async () => { const id = el('ban-id') ? el('ban-id').value : el('sm-ban-id').value; const mins = el('ban-mins') ? el('ban-mins').value : el('sm-ban-mins').value; const fine = el('ban-fine') ? el('ban-fine').value : el('sm-ban-fine').value; if(!id || !mins) return alert('Enter ID and Mins.'); const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single(); if(!u) return alert('User not found.'); const banUntil = new Date(Date.now() + parseInt(mins) * 60000).toISOString(); let newCurrency = parseFloat(u.currency); if(parseFloat(fine) > 0) { newCurrency -= parseFloat(fine); if(newCurrency < 0) newCurrency = 0; const treasury = await getTreasury(); await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(fine) }); } await sb.from('app_users').update({ banned_until: banUntil, current_room_id: 3, currency: newCurrency, ban_fine: parseFloat(fine) }).eq('user_id', id); await sb.from('public_messages').insert([{ room_id: u.current_room_id || 1, user_id: 3, username: 'SystemBot', content: `🔨 User ${u.username} has been banned.` }]); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: id, content: `🚨 You have been banned for ${mins} minutes. Fine: ${fine} Ð.` }]); await addRating(3, 2); 
-  alert('User banned!'); el('tb-admin').click(); };
-window.adminUnbanAction = async () => { const id = el('unban-id') ? el('unban-id').value : el('sm-unban-id').value; if(!id) return alert('Enter ID.'); const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single(); if(!u) return alert('User not found.'); await sb.from('app_users').update({ banned_until: new Date().toISOString(), current_room_id: 1, ban_fine: 0 }).eq('user_id', id); await sb.from('public_messages').insert([{ room_id: 1, user_id: 3, username: 'SystemBot', content: `✅ User ${u.username} has been unbanned.` }]); await sb.from('private_messages').insert([{ sender_id: 3, receiver_id: id, content: '✅ You have been unbanned! Welcome back.' }]); await addRating(3, 2); 
-  alert('User unbanned!'); el('tb-admin').click(); };
-window.adminAddRateAction = async () => { const id = el('addrate-id').value; const amt = el('addrate-amt').value; if(!id || !amt) return alert('Enter ID and Amount.'); const { data: u } = await sb.from('app_users').select('rating_points').eq('user_id', id).single(); if(!u) return alert('User not found.'); await sb.from('app_users').update({ rating_points: parseInt(u.rating_points) + parseInt(amt) }).eq('user_id', id); alert('Rating added!'); el('tb-admin').click(); };
-window.adminCutRateAction = async () => { const id = el('cutrate-id').value; const amt = el('cutrate-amt').value; if(!id || !amt) return alert('Enter ID and Amount.'); const { data: u } = await sb.from('app_users').select('rating_points').eq('user_id', id).single(); if(!u) return alert('User not found.'); let newScore = parseInt(u.rating_points) - parseInt(amt); if(newScore < 0) newScore = 0; await sb.from('app_users').update({ rating_points: newScore }).eq('user_id', id); alert('Rating cut!'); el('tb-admin').click(); };
-window.adminResetPassAction = async () => { const id = el('reset-id').value; if(!id) return alert('Enter ID.'); await sb.from('app_users').update({ password: '123456' }).eq('user_id', id); alert('Password reset to 123456.'); el('tb-admin').click(); };
-window.adminAdjustDotsAction = async () => { const id = el('dots-id').value; const amt = el('dots-amt').value; if(!id || !amt) return alert('Enter ID and Amount.'); const { data: u } = await sb.from('app_users').select('currency').eq('user_id', id).single(); if(!u) return alert('User not found.'); let newBal = parseFloat(u.currency) + parseFloat(amt); if(newBal < 0) newBal = 0; await sb.from('app_users').update({ currency: newBal }).eq('user_id', id); alert('Dots adjusted!'); el('tb-admin').click(); };
-window.adminClearRoomAction = async () => { const id = el('clear-id').value; if(!id) return alert('Enter Room ID.'); if(!confirm('Are you sure?')) return; await sb.from('public_messages').delete().eq('room_id', id); alert('Messages cleared!'); if(currentRoom == id) loadMessages(); };
-window.adminDeleteRoomAction = async () => { const id = el('del-id').value; if(!id) return alert('Enter Room ID.'); if(id == 1 || id == 2 || id == 3) return alert('Cannot delete system rooms.'); if(!confirm('Are you sure?')) return; await sb.from('public_messages').delete().eq('room_id', id); await sb.from('rooms').delete().eq('room_id', id); alert('Room deleted!'); joinRoom(1); };
-window.adminEconomyAction = async () => { const bc = el('bc-fee').value; await updateTreasury({ broadcast_fee: parseFloat(bc) }); alert('Broadcast Fee saved!'); };
-window.adminVipFeeAction = async () => { const vip = el('vip-fee').value; await updateTreasury({ vip_entry_fee: parseFloat(vip) }); alert('VIP Fee saved!'); };
-window.adminPmColorCostAction = async () => { const cost = el('pm-color-cost').value; await updateTreasury({ pm_color_cost: parseFloat(cost) }); alert('PM Color Cost saved!'); };
-window.adminMintAction = async () => { const amt = el('mint-amt').value; const target = el('mint-target').value; if(!amt) return alert('Enter amount.'); const treasury = await getTreasury(); if(target === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) + parseFloat(amt) }); else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) + parseFloat(amt) }); alert('Minted!'); el('tb-admin').click(); };
-window.adminBurnAction = async () => { const amt = el('burn-amt').value; const target = el('burn-target').value; if(!amt) return alert('Enter amount.'); const treasury = await getTreasury(); if(target === 'tax') await updateTreasury({ tax_balance: parseFloat(treasury.tax_balance) - parseFloat(amt) }); else await updateTreasury({ fund_balance: parseFloat(treasury.fund_balance) - parseFloat(amt) }); alert('Burned!'); el('tb-admin').click(); };
-window.adminCreateCodeAction = async () => { const code = el('rc-code').value; const val = el('rc-val').value; const uses = el('rc-uses').value; if(!code || !val || !uses) return alert('Fill all fields.'); await sb.from('redeem_codes').insert([{ code: code, reward_value: parseFloat(val), max_uses: parseInt(uses) }]); alert('Code created!'); el('tb-admin').click(); };
-window.adminUpdateGiftAction = async (id) => { const buy = el(`g-buy-${id}`).value; const sell = el(`g-sell-${id}`).value; const stock = el(`g-stock-${id}`).value; await sb.from('gifts').update({ price: parseFloat(buy), sell_price: parseFloat(sell), stock: parseInt(stock) }).eq('id', id); alert('Gift updated!'); loadAdminGifts(); };
-window.adminAddSMAction = async () => { const id = el('sm-id').value; if(!id) return alert('Enter User ID.'); const { data: u } = await sb.from('app_users').select('*').eq('user_id', id).single(); if(!u) return alert('User not found.'); if(u.is_admin) return alert('User is already Admin.'); await sb.from('app_users').update({ is_super_mod: true }).eq('user_id', id); alert('Super Mod added!'); el('tb-admin').click(); };
-window.adminRemoveSMAction = async (id) => { await sb.from('app_users').update({ is_super_mod: false }).eq('user_id', id); alert('Super Mod removed!'); el('tb-admin').click(); };
+window.adminAddSMAction = async () => { const id = el('sm-id').value; if(!id) return alert('Enter a User ID.'); const { error } = await sb.from('app_users').update({ is_super_mod: true }).eq('user_id', parseInt(id)); if (error) return alert('Error: ' + error.message); alert('Super Mod added!'); el('tb-admin').click(); };
+window.adminRemoveSMAction = async (id) => { await sb.from('app_users').update({ is_super_mod: false }).eq('user_id', id); loadAdminSMs(); };
 
-function openModal(t,b,wide){el('modal-root').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()"><div class="modal-card ${wide?'wide':''}"><div class="modal-titlebar"><span class="modal-titlebar-text">${t}</span><span class="modal-titlebar-close" onclick="closeModal()">✕</span></div><div class="modal-body"><div class="modal-body-pad">${b}</div></div></div></div>`;}
-function closeModal(){el('modal-root').innerHTML='';}
-function showCtx(e, u, uid){ e.stopPropagation(); const m=document.createElement('div'); m.className='ctx-menu'; m.style.left=e.clientX+'px';m.style.top=e.clientY+'px'; m.innerHTML=`<div class="ctx-item" onclick="startNewPM('${escapeHtml(u)}');closeCtx();">💬 Private Message</div><div class="ctx-item" onclick="viewProfile('${uid}');closeCtx();">👤 View Profile</div><div class="ctx-item" onclick="addFriend('${escapeHtml(u)}');closeCtx();">➕ Add Friend</div><div class="ctx-item" onclick="sendDotsPrompt('${uid}');closeCtx();">🪙 Send Dots</div>`; el('context-root').innerHTML='';el('context-root').appendChild(m); }
-function closeCtx(){el('context-root').innerHTML='';}
-window.onclick=closeCtx;
+function showCtx(e, name, uid) {
+  e.preventDefault(); e.stopPropagation();
+  const root = el('context-root'); root.innerHTML = '';
+  const menu = document.createElement('div'); menu.className = 'ctx-menu';
+  menu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px';
+  menu.style.top = Math.min(e.clientY, window.innerHeight - 250) + 'px';
+  const items = [
+    { label: '👤 ' + name + ' (#' + uid + ')', action: () => viewProfile(parseInt(uid)) },
+    { label: '💬 Send PM', action: () => { closeModal(); startNewPM(name); } },
+    { label: '➕ Add Friend', action: () => { addFriend(name); } },
+    { label: '🪙 Send Dots', action: () => { closeModal(); sendDotsPrompt(uid); } }
+  ];
+  if (currentUser.is_admin) items.push({ label: '🔨 Ban User', action: () => { closeModal(); el('tb-admin').click(); setTimeout(() => { if (el('ban-id')) el('ban-id').value = uid; }, 500); } });
+  items.forEach(item => {
+    const div = document.createElement('div'); div.className = 'ctx-item'; div.textContent = item.label;
+    div.onclick = () => { root.innerHTML = ''; item.action(); };
+    menu.appendChild(div);
+  });
+  root.appendChild(menu);
+}
+document.addEventListener('click', () => { const r = el('context-root'); if (r) r.innerHTML = ''; });
+
+function openModal(title, content) {
+  const root = el('modal-root');
+  root.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal-card"><h3>${title}</h3><span class="close-x" onclick="closeModal()">✕</span>${content}</div></div>`;
+}
+function closeModal() { const r = el('modal-root'); if (r) r.innerHTML = ''; }
 </script>
 </body>
 </html>
