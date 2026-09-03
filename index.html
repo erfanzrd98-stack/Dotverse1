@@ -154,7 +154,6 @@ function el(id){return document.getElementById(id);}
 function escapeHtml(s){const d=document.createElement('div');d.textContent=s??'';return d.innerHTML;}
 function showMsg(t,ok){const e=el('auth-msg');e.textContent=t;e.className='auth-msg '+(ok?'ok':'error');}
 
-// ═══ RPC هلپر — همه‌ی عملیات‌ها از این میان ═══
 async function rpc(name, args) {
   const { data, error } = await sb.rpc(name, args);
   if (error) { alert(error.message.replace(/^ERROR:\s*/,'')); throw error; }
@@ -179,10 +178,8 @@ el('btn-register').onclick = async () => {
   if(u.length < 3 || u.length > 14) return showMsg('Username must be 3-14 chars.');
   if(p.length < 3 || p.length > 14) return showMsg('Password must be 3-14 chars.');
   try {
-    // ۱) ثبت‌نام + پروفایل
     const { data: user, error } = await sb.rpc('register_user', { p_username:u, p_password:p, p_gender:g, p_city:c });
     if (error) return showMsg(error.message);
-    // ۲) نشست
     const { data: token, error: tokErr } = await sb.rpc('open_session', { p_username:u, p_password:p });
     if (tokErr) return showMsg(tokErr.message);
     sessionToken = token;
@@ -194,10 +191,8 @@ el('btn-register').onclick = async () => {
 el('btn-login').onclick = async () => {
   const u=el('login-username').value.trim(),p=el('login-password').value;
   if(!u||!p) return showMsg('Enter credentials.');
-  // ۱) توکن نشست
   const { data: token, error: tokErr } = await sb.rpc('open_session', { p_username:u, p_password:p });
   if (tokErr) return showMsg('Invalid username or password.');
-  // ۲) پروفایل
   const { data: user, error: usrErr } = await sb.rpc('login_user', { p_username:u, p_password:p });
   if (usrErr) return showMsg('Error loading profile.');
   sessionToken = token;
@@ -211,7 +206,6 @@ async function startApp(){
   joinRoom(1); subscribeToPMs(); subscribeToBroadcasts(); startBanCheck(); startNovaAutoMessage(); startHeartbeat();
 }
 
-// رفرش موجودی بعد از عملیات‌ها
 async function refreshCurrency(){
   const { data } = await sb.from('app_users').select('currency, rating_points, pm_color, pm_color_expires').eq('user_id', currentUser.user_id).single();
   if (data) { currentUser.currency = data.currency; currentUser.rating_points = data.rating_points; currentUser.pm_color = data.pm_color; currentUser.pm_color_expires = data.pm_color_expires; }
@@ -256,7 +250,6 @@ function getRatingTier(score) {
 }
 
 async function getTreasury() { const { data } = await sb.from('admin_settings').select('*').eq('id', 1).single(); return data; }
-async function addLog(text) { try { await rpc('send_public_message', { p_token: sessionToken, p_room_id: currentRoom, p_content: '[LOG] ' + text }); } catch(e){} }
 
 function startBanCheck() { if (banCheckInterval) clearInterval(banCheckInterval); checkBanStatus(); banCheckInterval = setInterval(checkBanStatus, 5000); }
 async function checkBanStatus() {
@@ -284,7 +277,6 @@ function showBroadcast(b) {
 async function joinRoom(id){
   closeModal();
   if (id === 2 && currentUser.user_id !== 1 && currentUser.user_id !== 3) {
-    // VIP از طریق RPC امن
     try { await rpc('join_vip_room', { p_token: sessionToken }); alert('Welcome to VIP Room!'); }
     catch(e) { return; }
   }
@@ -371,7 +363,6 @@ el('btn-send').onclick = async () => {
   if (lowerT.startsWith('bot ')) { isAi = true; promptText = t.substring(4); }
   else if (lowerT.startsWith('بات ')) { isAi = true; promptText = t.substring(4); }
 
-  // ✅ پیام عمومی از RPC امن
   try { await rpc('send_public_message', { p_token: sessionToken, p_room_id: currentRoom, p_content: t }); }
   catch(e) { return; }
 
@@ -414,7 +405,6 @@ async function sendReply(sender, popupId) {
   const inp = document.getElementById(`input-${popupId}`); const t = inp.value.trim(); if(!t) return;
   const { data: receiver } = await sb.from('app_users').select('user_id').eq('username', sender).single();
   if(receiver) {
-    // ✅ PM از RPC امن
     try { await rpc('send_private_message', { p_token: sessionToken, p_receiver_id: receiver.user_id, p_content: t }); } catch(e){ return; }
     const lowerT = t.toLowerCase();
     if ((lowerT.startsWith('bot ') || lowerT.startsWith('بات ')) && sender === 'Nova') {
@@ -469,7 +459,6 @@ window.showChatHistory = async (otherUserId, otherUsername) => {
 };
 window.sendPMFromHistory = async (otherUserId, otherUsername) => { 
   const inp = document.getElementById('pm-history-input'); const t = inp.value.trim(); if(!t) return; 
-  // ✅ PM از RPC
   try { await rpc('send_private_message', { p_token: sessionToken, p_receiver_id: otherUserId, p_content: t }); } catch(e){ return; }
   const lowerT = t.toLowerCase();
   if ((lowerT.startsWith('bot ') || lowerT.startsWith('بات ')) && otherUsername === 'Nova') {
@@ -480,8 +469,18 @@ window.sendPMFromHistory = async (otherUserId, otherUsername) => {
 };
 window.sendReport = async () => { const t = el('report-text').value.trim(); if(!t) return alert('Please write a message first.'); try { await rpc('send_private_message', { p_token: sessionToken, p_receiver_id: 1, p_content: '🚨 REPORT: ' + t }); } catch(e){ return; } el('report-text').value = ''; alert('Report sent to Admin!'); };
 window.startNewPM = async (u) => { if(!u) u = prompt('Enter username to send a PM:'); if(!u) return; const { data: receiver } = await sb.from('app_users').select('*').eq('username', u).single(); if (receiver) { openPMPopup(u, "", receiver); const popups = document.querySelectorAll('.pm-popup-card'); showReplyBox(popups[popups.length - 1].id, u); } else { alert("User not found"); } };
-window.addFriend = async (u) => { const { data: target } = await sb.from('app_users').select('user_id').eq('username', u).single(); if(!target) return alert('User not found'); const { error } = await sb.from('friends').insert([{ user_id: currentUser.user_id, friend_id: target.user_id }]); if (error) return alert('Already friends or error.'); alert('Added!'); };
-window.removeFriend = async (id) => { await sb.from('friends').delete().eq('user_id', currentUser.user_id).eq('friend_id', id); alert('Removed!'); loadFriendsList(); };
+
+// ✅ دوست‌ها — از RPC امن (فیکس مشکل Add Friend)
+window.addFriend = async (uname) => {
+  const { data: target } = await sb.from('app_users').select('user_id').eq('username', uname).single();
+  if(!target) return alert('User not found');
+  try { await rpc('add_friend', { p_token: sessionToken, p_target_id: target.user_id }); alert('Added!'); }
+  catch(e){}
+};
+window.removeFriend = async (id) => {
+  try { await rpc('remove_friend', { p_token: sessionToken, p_target_id: id }); alert('Removed!'); loadFriendsList(); }
+  catch(e){}
+};
 
 // --- Search & Leaderboard ---
 el('tb-search').onclick = () => {
@@ -528,13 +527,13 @@ window.viewProfile = async (userId) => {
   openModal(`👤 User Profile`, vpCard);
 };
 
-// --- Fine (RPC امن) ---
+// --- Fine ---
 window.payFine = async () => {
   try { await rpc('pay_fine', { p_token: sessionToken }); await refreshCurrency(); joinRoom(1); }
   catch(e) { return; }
 };
 
-// --- Dots & Games (همه RPC امن) ---
+// --- Dots & Games ---
 el('tb-dots').onclick = async () => {
   await refreshCurrency();
   const bal = parseFloat(currentUser.currency || 0).toFixed(2); const settings = await getTreasury();
@@ -549,7 +548,6 @@ window.openShopModal = async (type) => {
   else if (type === 'roompts') { const packages = [{ pts: 10, price: 1.00 }, { pts: 50, price: 4.50 }, { pts: 100, price: 9.00 }, { pts: 500, price: 45.00 }, { pts: 1000, price: 85.00 }]; openModal('🛍️ Shop - Room Points', packages.map(p => `<div class="friend-row" style="cursor:default;"><span class="friend-av" style="background:transparent; font-size:24px;">⭐</span><div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${p.pts} Room Points</div><div style="font-size:11px; color:var(--muted);">Current room</div></div><button class="btn-sm" onclick="buyRoomPoints(${p.pts}, ${p.price})">Buy (${p.price} Ð)</button></div>`).join('')); } 
   else if (type === 'pmcolor') { const settings = await getTreasury(); const cost = settings.pm_color_cost; const colors = [{ id: 'black', name: 'Black', bg:'#1a1a1a' }, { id: 'jade', name: 'Jade', bg:'#0F3D2E' }, { id: 'olive', name: 'Olive', bg:'#3A3B14' }]; openModal('🛍️ Shop - PM Color', colors.map(c => `<div class="friend-row" style="cursor:default;"><span class="friend-av" style="background:${c.bg}; border-radius:4px; width:30px; height:30px;"></span><div style="flex:1; margin-left:5px;"><div style="font-weight:600; font-size:14px;">${c.name}</div><div style="font-size:11px; color:var(--muted);">Lasts 24 hours</div></div><button class="btn-sm" onclick="buyPMColor('${c.id}')">Buy (${cost} Ð)</button></div>`).join('')); }
 };
-// ✅ همه خریدها RPC
 window.buyGift = async (giftId) => { try { const name = await rpc('buy_gift', { p_token: sessionToken, p_gift_id: giftId }); await refreshCurrency(); alert('Bought ' + name + '!'); openShopModal('gifts'); } catch(e){} };
 window.buyRoomPoints = async (pts, price) => { try { await rpc('buy_room_points', { p_token: sessionToken, p_pts: pts, p_price: price, p_room_id: currentRoom }); await refreshCurrency(); const { data: room } = await sb.from('rooms').select('rating_points').eq('room_id', currentRoom).single(); if (room) el('room-meta').textContent = 'ID: ' + currentRoom + ' · ' + room.rating_points + ' pts'; alert('Added ' + pts + ' points!'); openShopModal('roompts'); } catch(e){} };
 window.buyPMColor = async (id) => { try { await rpc('buy_pm_color', { p_token: sessionToken, p_color: id }); await refreshCurrency(); alert(id + ' PM color for 24 hours!'); closeModal(); } catch(e){} };
@@ -562,13 +560,26 @@ window.openGamesModal = () => { openModal('Games', `<div class="list-row" onclic
 window.openRouletteModal = () => { openModal('Roulette', `<label class="field">Bet Type</label><select id="rl-type" style="width:100%; padding:11px 13px; border-radius:11px; border:1.5px solid var(--line);"><option value="even">Even (2x)</option><option value="odd">Odd (2x)</option><option value="dozen1">1-12 (3x)</option><option value="dozen2">13-24 (3x)</option><option value="dozen3">25-36 (3x)</option><option value="number">Exact 0-36 (36x)</option></select><div id="rl-num-wrap" class="hidden" style="margin-top:10px;"><label class="field">Number (0-36)</label><input type="number" id="rl-num" min="0" max="36" style="width:100%; padding:11px 13px; border-radius:11px; border:1.5px solid var(--line);" /></div><label class="field">Bet Amount (Ð)</label><input type="number" id="rl-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:11px 13px; border-radius:11px; border:1.5px solid var(--line);" /><button class="btn" onclick="playRoulette()">Spin 🎲</button><div id="rl-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); document.getElementById('rl-type').addEventListener('change', (e) => document.getElementById('rl-num-wrap').classList.toggle('hidden', e.target.value !== 'number')); };
 window.playRoulette = async () => { const type = document.getElementById('rl-type').value; const num = document.getElementById('rl-num') ? parseInt(document.getElementById('rl-num').value) : 0; const amt = parseFloat(document.getElementById('rl-amt').value); if(!amt || amt <= 0) return alert('Invalid bet.'); try { const r = await rpc('play_roulette', { p_token: sessionToken, p_bet_type: type, p_bet_number: isNaN(num) ? null : num, p_amount: amt }); await refreshCurrency(); const res = document.getElementById('rl-res'); res.textContent = `Result: ${r.result}. You ${r.won ? 'WON' : 'LOST'}${r.won ? ' +' + r.payout + ' Ð' : ''}.`; res.style.color = r.won ? '#16a34a' : '#ef4444'; } catch(e){} };
 window.openRPSModal = () => { openModal('Rock Paper Scissors', `<p style="font-size:13px; color:var(--muted); text-align:center; margin-bottom:15px;">Win 2x your bet.</p><label class="field">Bet Amount (Ð)</label><input type="number" id="rps-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:11px 13px; border-radius:11px; border:1.5px solid var(--line); margin-bottom:15px;" /><div style="display:flex; gap:10px;"><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('rock')">✊</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button></div><div id="rps-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); };
-window.playRPS = async (choice) => { const amt = parseFloat(document.getElementById('rps-amt').value); if(!amt || amt <= 0) return alert('Invalid bet.'); try { const r = await rpc('play_rps', { p_token: sessionToken, p_choice: choice, p_amount: amt }); await refreshCurrency(); const icons = { rock: '✊', paper: '✋', scissors: '✌️' }; const res = document.getElementById('rps-res'); res.innerHTML = `You: ${icons[choice]} | Bot: ${icons[r.bot_choice]}<br>${r.outcome === 'tie' ? 'TIE!' : r.outcome === 'win' ? 'WIN! +' + r.payout + ' Ð' : 'LOST!'}`; res.style.color = r.outcome === 'tie' ? '#ca8a04' : (r.outcome === 'win' ? '#16a34a' : '#ef4444'); } catch(e){} };
+// ✅ فیکس RPS — اسم پارامترها و فیلدهای خروجی جدید
+window.playRPS = async (choice) => {
+  const amt = parseFloat(document.getElementById('rps-amt').value);
+  if(!amt || amt <= 0) return alert('Invalid bet.');
+  try {
+    const r = await rpc('play_rps', { p_choice_in: choice, p_amount_in: amt, p_token_in: sessionToken });
+    await refreshCurrency();
+    const icons = { rock: '✊', paper: '✋', scissors: '✌️' };
+    const res = document.getElementById('rps-res');
+    res.innerHTML = `You: ${icons[choice]} | Bot: ${icons[r.bot_pick]}<br>${r.outcome_txt === 'tie' ? 'TIE!' : r.outcome_txt === 'win' ? 'WIN! +' + r.payout_amt + ' Ð' : 'LOST!'}`;
+    res.style.color = r.outcome_txt === 'tie' ? '#ca8a04' : (r.outcome_txt === 'win' ? '#16a34a' : '#ef4444');
+  } catch(e){}
+};
 window.openTransferDotsModal = () => { openModal('Send Dots',`<label class="field">Recipient ID Number</label><input type="number" id="td-to" placeholder="e.g. 2" /><label class="field">Amount (Ð)</label><input type="number" id="td-amt" placeholder="e.g. 1.50" step="0.01" min="0.01" /><p style="font-size:12px;color:var(--muted);margin-top:5px;">10% tax. Receiver gets 90%.</p><button class="btn" onclick="transferDots()">Send</button>`); };
 window.transferDots = async () => { const toId = parseInt(el('td-to').value); const amt = parseFloat(el('td-amt').value); if(!toId || !amt || amt <= 0) return alert('Invalid input.'); if(toId === currentUser.user_id) return alert('Cannot send to yourself.'); try { const got = await rpc('transfer_dots', { p_token: sessionToken, p_to_id: toId, p_amount: amt }); await refreshCurrency(); alert(`Sent ${amt}Ð to #${toId}. They got ${got}Ð.`); closeModal(); el('tb-dots').click(); } catch(e){} };
 window.sendDotsPrompt = (id) => { openTransferDotsModal(); el('td-to').value = id; };
 window.refreshBalance = async (e) => { if(e) e.stopPropagation(); await refreshCurrency(); el('tb-dots').click(); };
-window.sendBroadcast = async () => { const text = el('bc-text').value.trim(); if (!text) return alert('Enter a message.'); const settings = await getTreasury(); const fee = parseFloat(settings.broadcast_fee); if (currentUser.currency < fee) return alert(`Costs ${fee} Ð. Not enough dots.`); if (!confirm(`This will cost ${fee} Ð. Proceed?`)) return; try { await rpc('send_broadcast', { p_token: sessionToken, p_content: text }); await refreshCurrency(); alert('Broadcast sent! It will appear shortly.'); closeModal(); el('tb-dots').click(); } catch(e){} }; 
-  // --- My Profile ---
+window.sendBroadcast = async () => { const text = el('bc-text').value.trim(); if (!text) return alert('Enter a message.'); const settings = await getTreasury(); const fee = parseFloat(settings.broadcast_fee); if (currentUser.currency < fee) return alert(`Costs ${fee} Ð. Not enough dots.`); if (!confirm(`This will cost ${fee} Ð. Proceed?`)) return; try { await rpc('send_broadcast', { p_token: sessionToken, p_content: text }); await refreshCurrency(); alert('Broadcast sent! It will appear shortly.'); closeModal(); el('tb-dots').click(); } catch(e){} };
+
+// --- My Profile ---
 el('tb-profile').onclick = () => {
   const isMaster = currentUser.is_admin;
   let avHtml = isMaster ? `<img src="${ADMIN_GIF}" class="avatar-img">` : `<select id="p-avatar" class="p-select" onchange="window._av=this.value">${AVATARS.map(a => `<option value="${a}" ${currentUser.avatar_url===a?'selected':''}>${a}</option>`).join('')}</select>`;
@@ -579,14 +590,29 @@ el('tb-profile').onclick = () => {
   window._av = currentUser.avatar_url || '🙂'; window._co = currentUser.id_color || '#000000'; window._gender = currentUser.gender || 'male';
 };
 window.doLogout = async () => { try { await sb.rpc('close_session', { p_token: sessionToken }); } catch(e){} localStorage.removeItem('dv_session'); location.reload(); };
-window.requestVerification = async () => { const { data } = await sb.from('app_users').update({ verification_requested: true }).eq('user_id', currentUser.user_id).select().single(); currentUser = data; alert('Request sent!'); el('tb-profile').click(); };
+// ✅ فیکس درخواست وریفای — RPC
+window.requestVerification = async () => { try { await rpc('request_verification', { p_token: sessionToken }); alert('Request sent!'); el('tb-profile').click(); } catch(e){} };
 window.selColor = (c, e) => { window._co = c; e.parentElement.querySelectorAll('.p-color-opt').forEach(x => x.classList.remove('selected')); e.classList.add('selected'); };
-window.saveProfile = async () => { let finalAvatar = window._av; if(currentUser.is_admin) finalAvatar = ADMIN_GIF; const newUsername = el('p-username').value.trim(); const oldPassword = el('p-oldpass') ? el('p-oldpass').value : ''; const newPassword = el('p-password').value; if(newUsername.length < 3 || newUsername.length > 14) return alert('Username must be 3-14 chars.'); if(newPassword && (newPassword.length < 3 || newPassword.length > 14)) return alert('Password must be 3-14 chars.'); if(newPassword && !oldPassword) return alert('Enter current password too.');
-  if(newPassword) { const { error: passErr } = await sb.rpc('change_password', { p_user_id: currentUser.user_id, p_old_password: oldPassword, p_new_password: newPassword }); if (passErr) return alert('Password error: ' + passErr.message); }
-  const updates = { username: newUsername, gender: window._gender, city: el('p-city').value.trim(), id_color: window._co, avatar_url: finalAvatar };
-  const { data } = await sb.from('app_users').update(updates).eq('user_id', currentUser.user_id).select().single(); currentUser = data; userCache[currentUser.user_id] = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, _ts: Date.now() }; alert('Saved!'); closeModal(); };
-
-// --- Rooms (ساخت اتاق RPC) ---
+// ✅ فیکس ذخیره پروفایل — RPC امن
+window.saveProfile = async () => {
+  let finalAvatar = window._av; if(currentUser.is_admin) finalAvatar = ADMIN_GIF;
+  const newUsername = el('p-username').value.trim();
+  const oldPassword = el('p-oldpass') ? el('p-oldpass').value : '';
+  const newPassword = el('p-password').value;
+  if(newUsername.length < 3 || newUsername.length > 14) return alert('Username must be 3-14 chars.');
+  if(newPassword && (newPassword.length < 3 || newPassword.length > 14)) return alert('Password must be 3-14 chars.');
+  if(newPassword && !oldPassword) return alert('Enter current password too.');
+  if(newPassword) {
+    const { error: passErr } = await sb.rpc('change_password', { p_user_id: currentUser.user_id, p_old_password: oldPassword, p_new_password: newPassword });
+    if (passErr) return alert('Password error: ' + passErr.message);
+  }
+  try {
+    currentUser = await rpc('update_profile', { p_token: sessionToken, p_username: newUsername, p_gender: window._gender, p_city: el('p-city').value.trim(), p_id_color: window._co, p_avatar: finalAvatar });
+    userCache[currentUser.user_id] = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, _ts: Date.now() };
+    alert('Saved!'); closeModal();
+  } catch(e){}
+}; 
+  // --- Rooms ---
 el('tb-rooms').onclick = async () => {
   const { data } = await sb.from('rooms').select('*').order('rating_points', { ascending: false });
   let rows = '<button class="btn" style="margin-bottom:15px;" onclick="showMyRooms()">👑 My Rooms</button>';
@@ -607,9 +633,10 @@ window.createRoomPrompt = async () => { const name = prompt('Enter new room name
 
 // --- Room Info ---
 el('tb-roominfo').onclick = async () => { const { data: room, error } = await sb.from('rooms').select('*').eq('room_id', currentRoom).single(); if (error || !room) return alert('Could not fetch room info.'); const { data: creator } = await sb.from('app_users').select('username').eq('user_id', room.creator_id).single(); const { data: owner } = await sb.from('app_users').select('username').eq('user_id', room.owner_id).single(); const { data: mods } = await sb.from('room_moderators').select('user_id').eq('room_id', currentRoom); let modsHtml = '<p style="color:var(--muted);font-size:12px;">None</p>'; if (mods && mods.length > 0) { const { data: modUsers } = await sb.from('app_users').select('user_id, username').in('user_id', mods.map(m => m.user_id)); if (modUsers && modUsers.length > 0) { modsHtml = modUsers.map(m => `<div class="list-row" style="cursor:default; border-bottom:none;"><span style="flex:1; font-weight:600;">${escapeHtml(m.username)} (ID: ${m.user_id})</span>${(room.creator_id === currentUser.user_id || room.owner_id === currentUser.user_id) ? `<button class="act-btn danger" onclick="removeModerator(${m.user_id})">➖</button>` : ''}</div>`).join(''); } } const canManage = room.creator_id === currentUser.user_id || room.owner_id === currentUser.user_id; const isCreator = room.creator_id === currentUser.user_id; let html = `<div class="list-row"><span style="flex:1;color:var(--muted);">Name</span><b>${escapeHtml(room.name)}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Room ID</span><b>#${room.room_id}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Score</span><b>${room.rating_points} pts</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Creator</span><b>${creator ? escapeHtml(creator.username) : 'Unknown'}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Owner</span><b>${owner ? escapeHtml(owner.username) : 'Unknown'}</b></div><div style="margin-top:15px; font-size:13px; font-weight:700;">Moderators:</div><div style="border:1px solid var(--line); border-radius:8px; padding:5px 10px; margin-bottom:15px;">${modsHtml}</div>`; if (canManage) html += `<label class="field">Add Moderator (User ID)</label><div style="display:flex; gap:10px;"><input type="number" id="mod-id-input" placeholder="e.g. 5" style="flex:1;" /><button class="btn-sm" onclick="addModerator()">Add</button></div>`; if (isCreator) html += `<label class="field" style="margin-top:20px;">Transfer Ownership (User ID)</label><div style="display:flex; gap:10px;"><input type="number" id="owner-id-input" placeholder="e.g. 5" style="flex:1;" /><button class="btn-sm" onclick="transferOwnership()">Transfer</button></div>`; openModal('ℹ️ Room Info', html); };
-window.addModerator = async () => { const id = parseInt(el('mod-id-input').value); if (!id) return alert('Enter a valid ID.'); const { data: target } = await sb.from('app_users').select('user_id').eq('user_id', id).single(); if (!target) return alert('User not found.'); const { error } = await sb.from('room_moderators').insert([{ room_id: currentRoom, user_id: id }]); if (error) return alert('Error or already a mod.'); alert('Moderator added!'); el('tb-roominfo').click(); };
-window.removeModerator = async (uid) => { if (!confirm('Remove this moderator?')) return; await sb.from('room_moderators').delete().eq('room_id', currentRoom).eq('user_id', uid); alert('Removed!'); el('tb-roominfo').click(); };
-window.transferOwnership = async () => { const id = parseInt(el('owner-id-input').value); if (!id) return alert('Enter a valid ID.'); if (id === currentUser.user_id) return alert('You are already the owner.'); const { data: target } = await sb.from('app_users').select('user_id').eq('user_id', id).single(); if (!target) return alert('User not found.'); const { error } = await sb.from('rooms').update({ owner_id: id }).eq('room_id', currentRoom); if (error) return alert('Error.'); alert('Ownership transferred!'); el('tb-roominfo').click(); };
+// ✅ مودراتورها از RPC امن
+window.addModerator = async () => { const id = parseInt(el('mod-id-input').value); if (!id) return alert('Enter a valid ID.'); try { await rpc('add_room_moderator', { p_token: sessionToken, p_target_id: id }); alert('Moderator added!'); el('tb-roominfo').click(); } catch(e){} };
+window.removeModerator = async (uid) => { if (!confirm('Remove this moderator?')) return; try { await rpc('remove_room_moderator', { p_token: sessionToken, p_target_id: uid }); alert('Removed!'); el('tb-roominfo').click(); } catch(e){} };
+window.transferOwnership = async () => { const id = parseInt(el('owner-id-input').value); if (!id) return alert('Enter a valid ID.'); if (id === currentUser.user_id) return alert('You are already the owner.'); try { await rpc('transfer_room_ownership', { p_token: sessionToken, p_target_id: id }); alert('Ownership transferred!'); el('tb-roominfo').click(); } catch(e){} };
 
 // --- Admin Panel (همه RPC + رمز) ---
 el('tb-admin').onclick = async () => {
@@ -639,7 +666,7 @@ el('tb-admin').onclick = async () => {
 };
 window.switchAdminTab = (tab, btn) => { document.querySelectorAll('.pm-modal-tab').forEach(t => t.classList.remove('active')); btn.classList.add('active'); ['requests','users','rooms','economy','super_mods','sm_ban'].forEach(t => { if(el(`admin-${t}`)) el(`admin-${t}`).classList.add('hidden'); }); if(el(`admin-${tab}`)) el(`admin-${tab}`).classList.remove('hidden'); };
 
-// 🔑 تأیید رمز ادمین — یک‌بار می‌پرسه و ۵ دقیقه نگه می‌داره
+// 🔑 رمز ادمین — یک‌بار، ۵ دقیقه اعتبار
 let adminPassCache = null, adminPassTime = 0;
 async function getAdminPass() {
   if (adminPassCache && Date.now() - adminPassTime < 5*60*1000) return adminPassCache;
@@ -676,21 +703,22 @@ window.adminBurnAction = async () => { const amt = el('burn-amt').value; const t
 window.adminCreateCodeAction = async () => { const code = el('rc-code').value.trim(); const val = el('rc-val').value; const uses = el('rc-uses').value; if(!code || !val || !uses) return alert('All fields required.'); if (await adminRpc('admin_create_code', { p_code: code, p_value: parseFloat(val), p_max_uses: parseInt(uses) })) alert('Code created!'); };
 window.adminSetSMAction = async (is) => { const id = el('sm-id').value; if(!id) return alert('Enter a User ID.'); if (await adminRpc('admin_set_supermod', { p_target_id: parseInt(id), p_is: is })) { alert('Done!'); el('tb-admin').click(); } };
 window.adminClearRoomAction = async () => { const id = el('clear-id').value; if(!id) return alert('Room ID required.'); if (!confirm('Delete ALL messages in this room?')) return; if (await adminRpc('admin_clear_room', { p_room_id: parseInt(id) })) alert('Room cleared!'); };
-window.adminDeleteRoomAction = async () => { const id = el('del-id').value; if(!id) return alert('Room ID required.'); if (parseInt(id) <= 3) return alert('Cannot delete system rooms (1-3).'); if (!confirm('Delete this room?')) return; if (await adminRpc('admin_clear_room', { p_room_id: parseInt(id) })) alert('Room deleted!'); };
+window.adminDeleteRoomAction = async () => { const id = el('del-id').value; if(!id) return alert('Room ID required.'); if (parseInt(id) <= 3) return alert('Cannot delete system rooms (1-3).'); if (!confirm('Delete this room?')) return; if (await adminRpc('admin_delete_room', { p_room_id: parseInt(id) })) alert('Room deleted!'); };
 async function loadAdminGifts() {
   const { data: gifts } = await sb.from('gifts').select('*').order('name');
   if (!gifts || gifts.length === 0) { if (el('admin-gifts-list')) el('admin-gifts-list').innerHTML = '<p style="color:var(--muted);font-size:12px;">No gifts.</p>'; return; }
   el('admin-gifts-list').innerHTML = gifts.map(g => `<div class="admin-gift-row"><span class="icon">${g.image_url}</span><span style="flex:1; font-size:13px;">${escapeHtml(g.name)}</span><input type="number" value="${g.price}" onchange="adminUpdateGiftPrice('${g.id}', this.value)"><input type="number" value="${g.stock}" onchange="adminUpdateGiftStock('${g.id}', this.value)"></div>`).join('');
 }
-window.adminUpdateGiftPrice = async (id, price) => { const pass = await getAdminPass(); if (!pass) return; try { await sb.from('gifts').update({ price: parseFloat(price), sell_price: parseFloat(price) * 0.8 }).eq('id', id); } catch(e){} };
-window.adminUpdateGiftStock = async (id, stock) => { try { await sb.from('gifts').update({ stock: parseInt(stock) }).eq('id', id); } catch(e){} };
+window.adminUpdateGiftPrice = async (id, price) => { const pass = await getAdminPass(); if (!pass) return; try { await rpc('admin_set_gift_price', { p_token: sessionToken, p_pass: pass, p_gift_id: id, p_price: parseFloat(price) }); } catch(e){} };
+window.adminUpdateGiftStock = async (id, stock) => { const pass = await getAdminPass(); if (!pass) return; try { await rpc('admin_set_gift_stock', { p_token: sessionToken, p_pass: pass, p_gift_id: id, p_stock: parseInt(stock) }); } catch(e){} };
 async function loadAdminSMs() {
   const { data: sms } = await sb.from('app_users').select('user_id, username').eq('is_super_mod', true).neq('user_id', 4);
   let html = '';
   if (sms && sms.length > 0) { html = sms.map(s => `<div class="friend-row" style="cursor:default;"><div class="friend-info"><span class="friend-av">🛡️</span><span class="friend-name">${escapeHtml(s.username)} (#${s.user_id})</span></div></div>`).join(''); } else { html = '<p style="color:var(--muted);font-size:12px;">No super mods.</p>'; }
   if (el('sm-list')) el('sm-list').innerHTML = html;
 }
-  // --- منوی کاربر (About User اول) ---
+
+// --- منوی کاربر (About User اول) ---
 function showCtx(e, name, uid) {
   e.preventDefault(); e.stopPropagation();
   const root = el('context-root'); root.innerHTML = '';
@@ -713,15 +741,15 @@ function showCtx(e, name, uid) {
 }
 document.addEventListener('click', () => { const r = el('context-root'); if (r) r.innerHTML = ''; });
 
-// --- مودال (ضربدر جدید) ---
+// --- مودال ---
 function openModal(title, content) {
   const root = el('modal-root');
   root.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal-card"><div class="modal-head"><div class="mt">${title}</div><button class="modal-x" onclick="closeModal()">✕</button></div><div class="modal-body">${content}</div></div></div>`;
 }
 function closeModal() { const r = el('modal-root'); if (r) r.innerHTML = ''; }
 
-// --- استارت با نشست ذخیره‌شده (Auto-Login) ---
- (async function tryAutoLogin(){
+// --- Auto-Login ---
+(async function tryAutoLogin(){
   try {
     const tok = localStorage.getItem('dv_session');
     if (!tok) return;
@@ -731,6 +759,6 @@ function closeModal() { const r = el('modal-root'); if (r) r.innerHTML = ''; }
     if (u) { sessionToken = tok; u.password = null; currentUser = u; startApp(); }
   } catch(e) { console.error('Auto-login error', e); }
 })();
-  </script>
+</script>
 </body>
 </html>
