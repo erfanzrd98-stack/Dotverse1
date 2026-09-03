@@ -721,17 +721,16 @@ function openModal(title, content) {
 function closeModal() { const r = el('modal-root'); if (r) r.innerHTML = ''; }
 
 // --- استارت با نشست ذخیره‌شده (Auto-Login) ---
-(async function tryAutoLogin(){
-  const tok = localStorage.getItem('dv_session');
-  const uname = localStorage.getItem('dv_username');
-  if (!tok || !uname) return;
-  // چک نشست هنوز معتبره؟
-  const { data: uid } = await sb.rpc('auth_uid_check', { p_token: tok });
-  if (!uid) { localStorage.removeItem('dv_session'); return; }
-  // پروفایل رو بگیر و شروع کن
-  const { data: u } = await sb.from('app_users').select('*').eq('user_id', uid).single();
-  if (u) { sessionToken = tok; u.password = null; currentUser = u; startApp(); }
+ (async function tryAutoLogin(){
+  try {
+    const tok = localStorage.getItem('dv_session');
+    if (!tok) return;
+    const { data: uid } = await sb.rpc('auth_uid_check', { p_token: tok });
+    if (!uid) { localStorage.removeItem('dv_session'); return; }
+    const { data: u } = await sb.from('app_users').select('*').eq('user_id', uid).single();
+    if (u) { sessionToken = tok; u.password = null; currentUser = u; startApp(); }
+  } catch(e) { console.error('Auto-login error', e); }
 })();
-</script>
+  </script>
 </body>
 </html>
