@@ -207,7 +207,7 @@ async function startApp(){
 }
 
 async function refreshCurrency(){
-  const { data } = await sb.from('app_users').select('currency, rating_points, pm_color, pm_color_expires').eq('user_id', currentUser.user_id).single();
+  const { data } = await sb.from('users_public').select('currency, rating_points, pm_color, pm_color_expires').eq('user_id', currentUser.user_id).single();
   if (data) { currentUser.currency = data.currency; currentUser.rating_points = data.rating_points; currentUser.pm_color = data.pm_color; currentUser.pm_color_expires = data.pm_color_expires; }
 }
 
@@ -254,7 +254,7 @@ async function getTreasury() { const { data } = await sb.from('admin_settings').
 function startBanCheck() { if (banCheckInterval) clearInterval(banCheckInterval); checkBanStatus(); banCheckInterval = setInterval(checkBanStatus, 5000); }
 async function checkBanStatus() {
   if (!currentUser) return;
-  const { data: u } = await sb.from('app_users').select('banned_until, ban_fine, current_room_id').eq('user_id', currentUser.user_id).single();
+  const { data: u } = await sb.from('users_public').select('banned_until, ban_fine, current_room_id').eq('user_id', currentUser.user_id).single();
   if (!u) return;
   const wasBanned = new Date(currentUser.banned_until) > new Date();
   const isBannedNow = new Date(u.banned_until) > new Date();
@@ -299,13 +299,13 @@ async function joinRoom(id){
   msgSubscription = sb.channel('public:public_messages:room_id=eq.' + id).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'public_messages', filter: `room_id=eq.${id}` }, payload => appendMessage(payload.new, true)).subscribe();
 }
 async function loadMessages(){
-  const { data } = await sb.from('public_messages').select('*, sender:app_users(username, avatar_url, id_color, is_admin, is_system, is_super_mod)').eq('room_id', currentRoom).order('created_at', { ascending: true }).limit(50);
+  const { data } = await sb.from('public_messages').select('*, sender:users_public(username, avatar_url, id_color, is_admin, is_system, is_super_mod)').eq('room_id', currentRoom).order('created_at', { ascending: true }).limit(50);
   const w = el('messages'); w.innerHTML = ''; if (data) data.forEach(m => appendMessage(m, false)); w.scrollTop = w.scrollHeight;
 }
 async function getUserData(userId) {
   const cached = userCache[userId]; const now = Date.now();
   if (cached && cached._ts && (now - cached._ts < 15000)) return cached;
-  const { data } = await sb.from('app_users').select('user_id, username, avatar_url, id_color, is_admin, is_system, is_super_mod, rating_points, gender, pm_color, pm_color_expires').eq('user_id', userId).single();
+  const { data } = await sb.from('users_public').select('user_id, username, avatar_url, id_color, is_admin, is_system, is_super_mod, rating_points, gender, pm_color, pm_color_expires').eq('user_id', userId).single();
   userCache[userId] = data || { username: 'Unknown', avatar_url: '🙂', id_color: '#000' }; userCache[userId]._ts = now; return userCache[userId];
 }
 async function appendMessage(m, isRealtime){
@@ -383,7 +383,7 @@ function subscribeToPMs() {
   pmSubscription = sb.channel('private_messages').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages', filter: `receiver_id=eq.${currentUser.user_id}` }, payload => handleIncomingPM(payload.new)).subscribe();
 }
 async function handleIncomingPM(msg) {
-  const { data: sender } = await sb.from('app_users').select('*').eq('user_id', msg.sender_id).single();
+  const { data: sender } = await sb.from('users_public').select('*').eq('user_id', msg.sender_id).single();
   if (sender) openPMPopup(sender.username, msg.content, sender);
 }
 function openPMPopup(sender, text, senderData) {
@@ -403,7 +403,7 @@ function showReplyBox(popupId, sender) {
 }
 async function sendReply(sender, popupId) {
   const inp = document.getElementById(`input-${popupId}`); const t = inp.value.trim(); if(!t) return;
-  const { data: receiver } = await sb.from('app_users').select('user_id').eq('username', sender).single();
+  const { data: receiver } = await sb.from('users_public').select('user_id').eq('username', sender).single();
   if(receiver) {
     try { await rpc('send_private_message', { p_token: sessionToken, p_receiver_id: receiver.user_id, p_content: t }); } catch(e){ return; }
     const lowerT = t.toLowerCase();
@@ -416,7 +416,7 @@ async function sendReply(sender, popupId) {
     document.getElementById(popupId).remove(); 
   } else { alert('User not found'); }
 }
-  // --- Community ---
+ // --- Community ---
 el('tb-pms').onclick = async () => {
   openModal('👥 Community', `<div class="pm-modal-tabs"><div class="pm-modal-tab active" onclick="switchCommunityTab('friends', this)">Friends</div><div class="pm-modal-tab" onclick="switchCommunityTab('history', this)">PM History</div><div class="pm-modal-tab" onclick="switchCommunityTab('report', this)">Report</div></div><div id="comm-friends"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div><div id="comm-history" class="hidden"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div><div id="comm-report" class="hidden"><label class="field">Message to Admin</label><textarea id="report-text" style="width:100%;height:100px;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:none;" placeholder="Write your report..."></textarea><button class="btn" onclick="sendReport()">Send Report</button></div>`);
   loadFriendsList(); loadPMHistory();
@@ -426,7 +426,7 @@ async function loadFriendsList() {
   const { data: friendsData } = await sb.from('friends').select('friend_id').eq('user_id', currentUser.user_id);
   let friendsHtml = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No friends yet.</p>';
   if (friendsData && friendsData.length > 0) {
-    const { data: friendsInfo } = await sb.from('app_users').select('username, user_id, avatar_url, is_admin, is_system, is_super_mod').in('user_id', friendsData.map(f => f.friend_id));
+    const { data: friendsInfo } = await sb.from('users_public').select('username, user_id, avatar_url, is_admin, is_system, is_super_mod').in('user_id', friendsData.map(f => f.friend_id));
     if (friendsInfo && friendsInfo.length > 0) {
       friendsHtml = friendsInfo.map(f => `<div class="friend-row"><div class="friend-info"><span class="friend-av${getAvExtra(f.user_id)}">${getUserAvatar(f, f.user_id)}</span><span class="friend-name">${escapeHtml(f.username)}</span></div><div class="friend-actions"><button class="act-btn danger" onclick="removeFriend(${f.user_id})">➖</button><button class="act-btn primary" onclick="startNewPM('${escapeHtml(f.username)}')">💬</button></div></div>`).join('');
     }
@@ -440,7 +440,7 @@ async function loadPMHistory() {
   userIds.delete(currentUser.user_id); userIds.delete(1); userIds.delete(3); userIds.delete(4);
   let historyHtml = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No history yet.</p>';
   if (userIds.size > 0) {
-    const { data: users } = await sb.from('app_users').select('user_id, username, avatar_url, is_admin, is_system, is_super_mod').in('user_id', Array.from(userIds));
+    const { data: users } = await sb.from('users_public').select('user_id, username, avatar_url, is_admin, is_system, is_super_mod').in('user_id', Array.from(userIds));
     if (users && users.length > 0) { 
       historyHtml = users.map(u => `<div class="friend-row" style="cursor:pointer;" onclick="showChatHistory(${u.user_id}, '${escapeHtml(u.username)}')"><div class="friend-info"><span class="friend-av${getAvExtra(u.user_id)}">${getUserAvatar(u, u.user_id)}</span><span class="friend-name">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted)">Tap to chat</span></div>`).join(''); 
     }
@@ -468,11 +468,11 @@ window.sendPMFromHistory = async (otherUserId, otherUsername) => {
   showChatHistory(otherUserId, otherUsername); 
 };
 window.sendReport = async () => { const t = el('report-text').value.trim(); if(!t) return alert('Please write a message first.'); try { await rpc('send_private_message', { p_token: sessionToken, p_receiver_id: 1, p_content: '🚨 REPORT: ' + t }); } catch(e){ return; } el('report-text').value = ''; alert('Report sent to Admin!'); };
-window.startNewPM = async (u) => { if(!u) u = prompt('Enter username to send a PM:'); if(!u) return; const { data: receiver } = await sb.from('app_users').select('*').eq('username', u).single(); if (receiver) { openPMPopup(u, "", receiver); const popups = document.querySelectorAll('.pm-popup-card'); showReplyBox(popups[popups.length - 1].id, u); } else { alert("User not found"); } };
+window.startNewPM = async (u) => { if(!u) u = prompt('Enter username to send a PM:'); if(!u) return; const { data: receiver } = await sb.from('users_public').select('*').eq('username', u).single(); if (receiver) { openPMPopup(u, "", receiver); const popups = document.querySelectorAll('.pm-popup-card'); showReplyBox(popups[popups.length - 1].id, u); } else { alert("User not found"); } };
 
 // ✅ دوست‌ها — RPC
 window.addFriend = async (uname) => {
-  const { data: target } = await sb.from('app_users').select('user_id').eq('username', uname).single();
+  const { data: target } = await sb.from('users_public').select('user_id').eq('username', uname).single();
   if(!target) return alert('User not found');
   try { await rpc('add_friend', { p_token: sessionToken, p_target_id: target.user_id }); alert('Added!'); }
   catch(e){}
@@ -490,7 +490,7 @@ el('tb-search').onclick = () => {
 window.switchSearchTab = (tab, btn) => { document.querySelectorAll('.pm-modal-tab').forEach(t => t.classList.remove('active')); btn.classList.add('active'); el('search-users').classList.toggle('hidden', tab !== 'users'); el('search-rooms').classList.toggle('hidden', tab !== 'rooms'); el('search-leaderboard').classList.toggle('hidden', tab !== 'leaderboard'); };
 window.searchUsers = async () => { 
   const q = el('usr-query').value.trim(); if(!q) return; 
-  const num = parseInt(q); let query = sb.from('app_users').select('user_id, username, avatar_url, is_admin, is_system, is_super_mod, rating_points, id_color, is_verified').limit(10); 
+  const num = parseInt(q); let query = sb.from('users_public').select('user_id, username, avatar_url, is_admin, is_system, is_super_mod, rating_points, id_color, is_verified').limit(10); 
   if (!isNaN(num)) query = query.eq('user_id', num); else query = query.ilike('username', `%${q}%`); 
   const { data, error } = await query; 
   if (error || !data || data.length === 0) return el('usr-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No users found.</p>'; 
@@ -508,14 +508,14 @@ window.searchRooms = async () => {
   }).join(''); 
 };
 window.loadLeaderboard = async () => {
-  const { data: users } = await sb.from('app_users').select('user_id, username, avatar_url, id_color, rating_points, is_admin, is_system, is_super_mod').order('rating_points', { ascending: false }).limit(10);
+  const { data: users } = await sb.from('users_public').select('user_id, username, avatar_url, id_color, rating_points, is_admin, is_system, is_super_mod').order('rating_points', { ascending: false }).limit(10);
   if (!users || users.length === 0) return el('lb-results').innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;">No users yet.</p>';
   el('lb-results').innerHTML = users.map((u, i) => `<div class="friend-row" onclick="viewProfile(${u.user_id})" style="cursor:pointer;"><div class="lb-rank">${i+1}</div><div class="friend-info"><span class="friend-av${getAvExtra(u.user_id)}">${getUserAvatar(u, u.user_id)}</span><span class="friend-name" style="color:${u.id_color || '#000'};">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted)">${u.rating_points} pts</span></div>`).join('');
 };
 
 // --- View Profile ---
 window.viewProfile = async (userId) => {
-  const { data: u, error } = await sb.from('app_users').select('*').eq('user_id', userId).single();
+  const { data: u, error } = await sb.from('users_public').select('*').eq('user_id', userId).single();
   if (error || !u) return alert('User not found.');
   const { data: fr } = await sb.from('friends').select('id').eq('user_id', currentUser.user_id).eq('friend_id', userId).maybeSingle();
   const isFriend = !!fr;
@@ -558,10 +558,8 @@ window.openRedeemModal = () => { openModal('Redeem Code', `<label class="field">
 window.redeemCode = async () => { const code = el('rd-code').value.trim(); if(!code) return alert('Enter a code.'); try { const val = await rpc('redeem_code', { p_token: sessionToken, p_code: code }); await refreshCurrency(); el('rd-res').innerHTML = `<span style="color:#16a34a">Success! +${val} Ð</span>`; } catch(e){ el('rd-res').innerHTML = '<span style="color:#ef4444">Invalid or expired.</span>'; } };
 window.openGamesModal = () => { openModal('Games', `<div class="list-row" onclick="openRouletteModal()"><span style="font-size:20px;">🎰</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Roulette</div><div style="font-size:11px; color:var(--muted);">Even/Odd, Dozens, or Exact</div></div></div><div class="list-row" onclick="openRPSModal()"><span style="font-size:20px;">✊</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Rock Paper Scissors</div><div style="font-size:11px; color:var(--muted);">2x payout</div></div></div>`); };
 window.openRouletteModal = () => { openModal('Roulette', `<label class="field">Bet Type</label><select id="rl-type" style="width:100%; padding:11px 13px; border-radius:11px; border:1.5px solid var(--line);"><option value="even">Even (2x)</option><option value="odd">Odd (2x)</option><option value="dozen1">1-12 (3x)</option><option value="dozen2">13-24 (3x)</option><option value="dozen3">25-36 (3x)</option><option value="number">Exact 0-36 (36x)</option></select><div id="rl-num-wrap" class="hidden" style="margin-top:10px;"><label class="field">Number (0-36)</label><input type="number" id="rl-num" min="0" max="36" style="width:100%; padding:11px 13px; border-radius:11px; border:1.5px solid var(--line);" /></div><label class="field">Bet Amount (Ð)</label><input type="number" id="rl-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:11px 13px; border-radius:11px; border:1.5px solid var(--line);" /><button class="btn" onclick="playRoulette()">Spin 🎲</button><div id="rl-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); document.getElementById('rl-type').addEventListener('change', (e) => document.getElementById('rl-num-wrap').classList.toggle('hidden', e.target.value !== 'number')); };
-// ✅ رولت — JSON جدید
 window.playRoulette = async () => { const type = document.getElementById('rl-type').value; const num = document.getElementById('rl-num') ? parseInt(document.getElementById('rl-num').value) : 0; const amt = parseFloat(document.getElementById('rl-amt').value); if(!amt || amt <= 0) return alert('Invalid bet.'); try { const r = await rpc('play_roulette', { p_token: sessionToken, p_bet_type: type, p_bet_number: isNaN(num) ? null : num, p_amount: amt }); await refreshCurrency(); const res = document.getElementById('rl-res'); res.textContent = `Result: ${r.result}. You ${r.won ? 'WON' : 'LOST'}${r.won ? ' +' + r.payout + ' Ð' : ''}.`; res.style.color = r.won ? '#16a34a' : '#ef4444'; } catch(e){} };
 window.openRPSModal = () => { openModal('Rock Paper Scissors', `<p style="font-size:13px; color:var(--muted); text-align:center; margin-bottom:15px;">Win 2x your bet.</p><label class="field">Bet Amount (Ð)</label><input type="number" id="rps-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:11px 13px; border-radius:11px; border:1.5px solid var(--line); margin-bottom:15px;" /><div style="display:flex; gap:10px;"><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('rock')">✊</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button></div><div id="rps-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); };
-// ✅ RPS — JSON جدید
 window.playRPS = async (choice) => {
   const amt = parseFloat(document.getElementById('rps-amt').value);
   if(!amt || amt <= 0) return alert('Invalid bet.');
@@ -610,8 +608,8 @@ window.saveProfile = async () => {
     userCache[currentUser.user_id] = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, _ts: Date.now() };
     alert('Saved!'); closeModal();
   } catch(e){}
-};
- // --- Rooms ---
+}; 
+// --- Rooms ---
 el('tb-rooms').onclick = async () => {
   const { data } = await sb.from('rooms').select('*').order('rating_points', { ascending: false });
   let rows = '<button class="btn" style="margin-bottom:15px;" onclick="showMyRooms()">👑 My Rooms</button>';
@@ -631,7 +629,7 @@ window.showMyRooms = async () => {
 window.createRoomPrompt = async () => { const name = prompt('Enter new room name:'); if(!name) return; try { const id = await rpc('create_room', { p_token: sessionToken, p_name: name }); await refreshCurrency(); alert('Room created!'); closeModal(); joinRoom(id); } catch(e){} };
 
 // --- Room Info ---
-el('tb-roominfo').onclick = async () => { const { data: room, error } = await sb.from('rooms').select('*').eq('room_id', currentRoom).single(); if (error || !room) return alert('Could not fetch room info.'); const { data: creator } = await sb.from('app_users').select('username').eq('user_id', room.creator_id).single(); const { data: owner } = await sb.from('app_users').select('username').eq('user_id', room.owner_id).single(); const { data: mods } = await sb.from('room_moderators').select('user_id').eq('room_id', currentRoom); let modsHtml = '<p style="color:var(--muted);font-size:12px;">None</p>'; if (mods && mods.length > 0) { const { data: modUsers } = await sb.from('app_users').select('user_id, username').in('user_id', mods.map(m => m.user_id)); if (modUsers && modUsers.length > 0) { modsHtml = modUsers.map(m => `<div class="list-row" style="cursor:default; border-bottom:none;"><span style="flex:1; font-weight:600;">${escapeHtml(m.username)} (ID: ${m.user_id})</span>${(room.creator_id === currentUser.user_id || room.owner_id === currentUser.user_id) ? `<button class="act-btn danger" onclick="removeModerator(${m.user_id})">➖</button>` : ''}</div>`).join(''); } } const canManage = room.creator_id === currentUser.user_id || room.owner_id === currentUser.user_id; const isCreator = room.creator_id === currentUser.user_id; let html = `<div class="list-row"><span style="flex:1;color:var(--muted);">Name</span><b>${escapeHtml(room.name)}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Room ID</span><b>#${room.room_id}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Score</span><b>${room.rating_points} pts</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Creator</span><b>${creator ? escapeHtml(creator.username) : 'Unknown'}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Owner</span><b>${owner ? escapeHtml(owner.username) : 'Unknown'}</b></div><div style="margin-top:15px; font-size:13px; font-weight:700;">Moderators:</div><div style="border:1px solid var(--line); border-radius:8px; padding:5px 10px; margin-bottom:15px;">${modsHtml}</div>`; if (canManage) html += `<label class="field">Add Moderator (User ID)</label><div style="display:flex; gap:10px;"><input type="number" id="mod-id-input" placeholder="e.g. 5" style="flex:1;" /><button class="btn-sm" onclick="addModerator()">Add</button></div>`; if (isCreator) html += `<label class="field" style="margin-top:20px;">Transfer Ownership (User ID)</label><div style="display:flex; gap:10px;"><input type="number" id="owner-id-input" placeholder="e.g. 5" style="flex:1;" /><button class="btn-sm" onclick="transferOwnership()">Transfer</button></div>`; openModal('ℹ️ Room Info', html); };
+el('tb-roominfo').onclick = async () => { const { data: room, error } = await sb.from('rooms').select('*').eq('room_id', currentRoom).single(); if (error || !room) return alert('Could not fetch room info.'); const { data: creator } = await sb.from('users_public').select('username').eq('user_id', room.creator_id).single(); const { data: owner } = await sb.from('users_public').select('username').eq('user_id', room.owner_id).single(); const { data: mods } = await sb.from('room_moderators').select('user_id').eq('room_id', currentRoom); let modsHtml = '<p style="color:var(--muted);font-size:12px;">None</p>'; if (mods && mods.length > 0) { const { data: modUsers } = await sb.from('users_public').select('user_id, username').in('user_id', mods.map(m => m.user_id)); if (modUsers && modUsers.length > 0) { modsHtml = modUsers.map(m => `<div class="list-row" style="cursor:default; border-bottom:none;"><span style="flex:1; font-weight:600;">${escapeHtml(m.username)} (ID: ${m.user_id})</span>${(room.creator_id === currentUser.user_id || room.owner_id === currentUser.user_id) ? `<button class="act-btn danger" onclick="removeModerator(${m.user_id})">➖</button>` : ''}</div>`).join(''); } } const canManage = room.creator_id === currentUser.user_id || room.owner_id === currentUser.user_id; const isCreator = room.creator_id === currentUser.user_id; let html = `<div class="list-row"><span style="flex:1;color:var(--muted);">Name</span><b>${escapeHtml(room.name)}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Room ID</span><b>#${room.room_id}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Score</span><b>${room.rating_points} pts</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Creator</span><b>${creator ? escapeHtml(creator.username) : 'Unknown'}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Owner</span><b>${owner ? escapeHtml(owner.username) : 'Unknown'}</b></div><div style="margin-top:15px; font-size:13px; font-weight:700;">Moderators:</div><div style="border:1px solid var(--line); border-radius:8px; padding:5px 10px; margin-bottom:15px;">${modsHtml}</div>`; if (canManage) html += `<label class="field">Add Moderator (User ID)</label><div style="display:flex; gap:10px;"><input type="number" id="mod-id-input" placeholder="e.g. 5" style="flex:1;" /><button class="btn-sm" onclick="addModerator()">Add</button></div>`; if (isCreator) html += `<label class="field" style="margin-top:20px;">Transfer Ownership (User ID)</label><div style="display:flex; gap:10px;"><input type="number" id="owner-id-input" placeholder="e.g. 5" style="flex:1;" /><button class="btn-sm" onclick="transferOwnership()">Transfer</button></div>`; openModal('ℹ️ Room Info', html); };
 window.addModerator = async () => { const id = parseInt(el('mod-id-input').value); if (!id) return alert('Enter a valid ID.'); try { await rpc('add_room_moderator', { p_token: sessionToken, p_target_id: id }); alert('Moderator added!'); el('tb-roominfo').click(); } catch(e){} };
 window.removeModerator = async (uid) => { if (!confirm('Remove this moderator?')) return; try { await rpc('remove_room_moderator', { p_token: sessionToken, p_target_id: uid }); alert('Removed!'); el('tb-roominfo').click(); } catch(e){} };
 window.transferOwnership = async () => { const id = parseInt(el('owner-id-input').value); if (!id) return alert('Enter a valid ID.'); if (id === currentUser.user_id) return alert('You are already the owner.'); try { await rpc('transfer_room_ownership', { p_token: sessionToken, p_target_id: id }); alert('Ownership transferred!'); el('tb-roominfo').click(); } catch(e){} };
@@ -680,10 +678,10 @@ async function adminRpc(name, extraArgs) {
 }
 
 async function loadAdminRequests() {
-  const { data: reqs } = await sb.from('app_users').select('user_id, username').eq('verification_requested', true);
+  const { data: reqs } = await sb.from('users_public').select('user_id, username').eq('verification_requested', true);
   let html = '<div style="font-size:14px; font-weight:bold; margin-bottom:10px;">Verify ID Requests</div>';
   if (reqs && reqs.length > 0) { html += reqs.map(u => `<div class="friend-row" style="cursor:default;"><div class="friend-info"><span class="friend-av">🙂</span><span class="friend-name">${escapeHtml(u.username)} (#${u.user_id})</span></div><div class="friend-actions"><button class="btn-sm" style="background:#16a34a;color:#fff;border:none;" onclick="adminVerifyAction(${u.user_id}, true)">✔</button><button class="btn-sm" style="background:#ef4444;color:#fff;border:none;" onclick="adminVerifyAction(${u.user_id}, false)">✖</button></div></div>`).join(''); } else { html += '<p style="color:var(--muted);font-size:12px;">No pending requests.</p>'; }
-  const { data: reports } = await sb.from('private_messages').select('id, content, sender:app_users(username)').eq('receiver_id', 1).ilike('content', '🚨%').order('created_at', { ascending: false }).limit(10);
+  const { data: reports } = await sb.from('private_messages').select('id, content, sender:users_public(username)').eq('receiver_id', 1).ilike('content', '🚨%').order('created_at', { ascending: false }).limit(10);
   html += '<div style="font-size:14px; font-weight:bold; margin-top:20px; margin-bottom:10px;">User Reports</div>';
   if (reports && reports.length > 0) { html += reports.map(r => `<div class="list-row" style="cursor:default; flex-direction:column; align-items:flex-start;"><span style="font-weight:600;">From: ${r.sender ? r.sender.username : 'Unknown'}</span><span style="font-size:12px; color:var(--muted); margin-top:4px;">${escapeHtml(r.content.replace('🚨 REPORT: ', ''))}</span></div>`).join(''); } else { html += '<p style="color:var(--muted);font-size:12px;">No reports.</p>'; }
   el('admin-requests').innerHTML = html;
@@ -709,7 +707,7 @@ async function loadAdminGifts() {
 window.adminUpdateGiftPrice = async (id, price) => { const pass = await getAdminPass(); if (!pass) return; try { await rpc('admin_set_gift_price', { p_token: sessionToken, p_pass: pass, p_gift_id: id, p_price: parseFloat(price) }); } catch(e){} };
 window.adminUpdateGiftStock = async (id, stock) => { const pass = await getAdminPass(); if (!pass) return; try { await rpc('admin_set_gift_stock', { p_token: sessionToken, p_pass: pass, p_gift_id: id, p_stock: parseInt(stock) }); } catch(e){} };
 async function loadAdminSMs() {
-  const { data: sms } = await sb.from('app_users').select('user_id, username').eq('is_super_mod', true).neq('user_id', 4);
+  const { data: sms } = await sb.from('users_public').select('user_id, username').eq('is_super_mod', true).neq('user_id', 4);
   let html = '';
   if (sms && sms.length > 0) { html = sms.map(s => `<div class="friend-row" style="cursor:default;"><div class="friend-info"><span class="friend-av">🛡️</span><span class="friend-name">${escapeHtml(s.username)} (#${s.user_id})</span></div></div>`).join(''); } else { html = '<p style="color:var(--muted);font-size:12px;">No super mods.</p>'; }
   if (el('sm-list')) el('sm-list').innerHTML = html;
@@ -752,11 +750,10 @@ function closeModal() { const r = el('modal-root'); if (r) r.innerHTML = ''; }
     if (!tok) return;
     const { data: uid } = await sb.rpc('auth_uid_check', { p_token: tok });
     if (!uid) { localStorage.removeItem('dv_session'); return; }
-    const { data: u } = await sb.from('app_users').select('*').eq('user_id', uid).single();
+    const { data: u } = await sb.from('users_public').select('*').eq('user_id', uid).single();
     if (u) { sessionToken = tok; u.password = null; currentUser = u; startApp(); }
   } catch(e) { console.error('Auto-login error', e); }
 })();
 </script>
 </body>
-</html> 
-  
+</html>  
