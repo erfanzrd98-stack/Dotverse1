@@ -416,7 +416,7 @@ async function sendReply(sender, popupId) {
     document.getElementById(popupId).remove(); 
   } else { alert('User not found'); }
 }
- // --- Community ---
+  // --- Community ---
 el('tb-pms').onclick = async () => {
   openModal('👥 Community', `<div class="pm-modal-tabs"><div class="pm-modal-tab active" onclick="switchCommunityTab('friends', this)">Friends</div><div class="pm-modal-tab" onclick="switchCommunityTab('history', this)">PM History</div><div class="pm-modal-tab" onclick="switchCommunityTab('report', this)">Report</div></div><div id="comm-friends"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div><div id="comm-history" class="hidden"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div><div id="comm-report" class="hidden"><label class="field">Message to Admin</label><textarea id="report-text" style="width:100%;height:100px;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:none;" placeholder="Write your report..."></textarea><button class="btn" onclick="sendReport()">Send Report</button></div>`);
   loadFriendsList(); loadPMHistory();
@@ -470,7 +470,7 @@ window.sendPMFromHistory = async (otherUserId, otherUsername) => {
 window.sendReport = async () => { const t = el('report-text').value.trim(); if(!t) return alert('Please write a message first.'); try { await rpc('send_private_message', { p_token: sessionToken, p_receiver_id: 1, p_content: '🚨 REPORT: ' + t }); } catch(e){ return; } el('report-text').value = ''; alert('Report sent to Admin!'); };
 window.startNewPM = async (u) => { if(!u) u = prompt('Enter username to send a PM:'); if(!u) return; const { data: receiver } = await sb.from('app_users').select('*').eq('username', u).single(); if (receiver) { openPMPopup(u, "", receiver); const popups = document.querySelectorAll('.pm-popup-card'); showReplyBox(popups[popups.length - 1].id, u); } else { alert("User not found"); } };
 
-// ✅ دوست‌ها — از RPC امن (فیکس مشکل Add Friend)
+// ✅ دوست‌ها — RPC
 window.addFriend = async (uname) => {
   const { data: target } = await sb.from('app_users').select('user_id').eq('username', uname).single();
   if(!target) return alert('User not found');
@@ -558,9 +558,10 @@ window.openRedeemModal = () => { openModal('Redeem Code', `<label class="field">
 window.redeemCode = async () => { const code = el('rd-code').value.trim(); if(!code) return alert('Enter a code.'); try { const val = await rpc('redeem_code', { p_token: sessionToken, p_code: code }); await refreshCurrency(); el('rd-res').innerHTML = `<span style="color:#16a34a">Success! +${val} Ð</span>`; } catch(e){ el('rd-res').innerHTML = '<span style="color:#ef4444">Invalid or expired.</span>'; } };
 window.openGamesModal = () => { openModal('Games', `<div class="list-row" onclick="openRouletteModal()"><span style="font-size:20px;">🎰</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Roulette</div><div style="font-size:11px; color:var(--muted);">Even/Odd, Dozens, or Exact</div></div></div><div class="list-row" onclick="openRPSModal()"><span style="font-size:20px;">✊</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Rock Paper Scissors</div><div style="font-size:11px; color:var(--muted);">2x payout</div></div></div>`); };
 window.openRouletteModal = () => { openModal('Roulette', `<label class="field">Bet Type</label><select id="rl-type" style="width:100%; padding:11px 13px; border-radius:11px; border:1.5px solid var(--line);"><option value="even">Even (2x)</option><option value="odd">Odd (2x)</option><option value="dozen1">1-12 (3x)</option><option value="dozen2">13-24 (3x)</option><option value="dozen3">25-36 (3x)</option><option value="number">Exact 0-36 (36x)</option></select><div id="rl-num-wrap" class="hidden" style="margin-top:10px;"><label class="field">Number (0-36)</label><input type="number" id="rl-num" min="0" max="36" style="width:100%; padding:11px 13px; border-radius:11px; border:1.5px solid var(--line);" /></div><label class="field">Bet Amount (Ð)</label><input type="number" id="rl-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:11px 13px; border-radius:11px; border:1.5px solid var(--line);" /><button class="btn" onclick="playRoulette()">Spin 🎲</button><div id="rl-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); document.getElementById('rl-type').addEventListener('change', (e) => document.getElementById('rl-num-wrap').classList.toggle('hidden', e.target.value !== 'number')); };
+// ✅ رولت — JSON جدید
 window.playRoulette = async () => { const type = document.getElementById('rl-type').value; const num = document.getElementById('rl-num') ? parseInt(document.getElementById('rl-num').value) : 0; const amt = parseFloat(document.getElementById('rl-amt').value); if(!amt || amt <= 0) return alert('Invalid bet.'); try { const r = await rpc('play_roulette', { p_token: sessionToken, p_bet_type: type, p_bet_number: isNaN(num) ? null : num, p_amount: amt }); await refreshCurrency(); const res = document.getElementById('rl-res'); res.textContent = `Result: ${r.result}. You ${r.won ? 'WON' : 'LOST'}${r.won ? ' +' + r.payout + ' Ð' : ''}.`; res.style.color = r.won ? '#16a34a' : '#ef4444'; } catch(e){} };
 window.openRPSModal = () => { openModal('Rock Paper Scissors', `<p style="font-size:13px; color:var(--muted); text-align:center; margin-bottom:15px;">Win 2x your bet.</p><label class="field">Bet Amount (Ð)</label><input type="number" id="rps-amt" value="1" step="0.01" min="0.01" style="width:100%; padding:11px 13px; border-radius:11px; border:1.5px solid var(--line); margin-bottom:15px;" /><div style="display:flex; gap:10px;"><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('rock')">✊</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('paper')">✋</button><button class="btn" style="background:#f4f5f7; color:var(--ink); font-size:24px;" onclick="playRPS('scissors')">✌️</button></div><div id="rps-res" style="text-align:center; font-weight:bold; margin-top:15px; font-size:14px;"></div>`); };
-// ✅ فیکس RPS — اسم پارامترها و فیلدهای خروجی جدید
+// ✅ RPS — JSON جدید
 window.playRPS = async (choice) => {
   const amt = parseFloat(document.getElementById('rps-amt').value);
   if(!amt || amt <= 0) return alert('Invalid bet.');
@@ -569,8 +570,8 @@ window.playRPS = async (choice) => {
     await refreshCurrency();
     const icons = { rock: '✊', paper: '✋', scissors: '✌️' };
     const res = document.getElementById('rps-res');
-    res.innerHTML = `You: ${icons[choice]} | Bot: ${icons[r.bot_pick]}<br>${r.outcome_txt === 'tie' ? 'TIE!' : r.outcome_txt === 'win' ? 'WIN! +' + r.payout_amt + ' Ð' : 'LOST!'}`;
-    res.style.color = r.outcome_txt === 'tie' ? '#ca8a04' : (r.outcome_txt === 'win' ? '#16a34a' : '#ef4444');
+    res.innerHTML = `You: ${icons[choice]} | Bot: ${icons[r.bot_pick]}<br>${r.outcome === 'tie' ? 'TIE!' : r.outcome === 'win' ? 'WIN! +' + r.payout + ' Ð' : 'LOST!'}`;
+    res.style.color = r.outcome === 'tie' ? '#ca8a04' : (r.outcome === 'win' ? '#16a34a' : '#ef4444');
   } catch(e){}
 };
 window.openTransferDotsModal = () => { openModal('Send Dots',`<label class="field">Recipient ID Number</label><input type="number" id="td-to" placeholder="e.g. 2" /><label class="field">Amount (Ð)</label><input type="number" id="td-amt" placeholder="e.g. 1.50" step="0.01" min="0.01" /><p style="font-size:12px;color:var(--muted);margin-top:5px;">10% tax. Receiver gets 90%.</p><button class="btn" onclick="transferDots()">Send</button>`); };
@@ -590,10 +591,8 @@ el('tb-profile').onclick = () => {
   window._av = currentUser.avatar_url || '🙂'; window._co = currentUser.id_color || '#000000'; window._gender = currentUser.gender || 'male';
 };
 window.doLogout = async () => { try { await sb.rpc('close_session', { p_token: sessionToken }); } catch(e){} localStorage.removeItem('dv_session'); location.reload(); };
-// ✅ فیکس درخواست وریفای — RPC
 window.requestVerification = async () => { try { await rpc('request_verification', { p_token: sessionToken }); alert('Request sent!'); el('tb-profile').click(); } catch(e){} };
 window.selColor = (c, e) => { window._co = c; e.parentElement.querySelectorAll('.p-color-opt').forEach(x => x.classList.remove('selected')); e.classList.add('selected'); };
-// ✅ فیکس ذخیره پروفایل — RPC امن
 window.saveProfile = async () => {
   let finalAvatar = window._av; if(currentUser.is_admin) finalAvatar = ADMIN_GIF;
   const newUsername = el('p-username').value.trim();
@@ -611,8 +610,8 @@ window.saveProfile = async () => {
     userCache[currentUser.user_id] = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, _ts: Date.now() };
     alert('Saved!'); closeModal();
   } catch(e){}
-}; 
-  // --- Rooms ---
+};
+ // --- Rooms ---
 el('tb-rooms').onclick = async () => {
   const { data } = await sb.from('rooms').select('*').order('rating_points', { ascending: false });
   let rows = '<button class="btn" style="margin-bottom:15px;" onclick="showMyRooms()">👑 My Rooms</button>';
@@ -633,12 +632,11 @@ window.createRoomPrompt = async () => { const name = prompt('Enter new room name
 
 // --- Room Info ---
 el('tb-roominfo').onclick = async () => { const { data: room, error } = await sb.from('rooms').select('*').eq('room_id', currentRoom).single(); if (error || !room) return alert('Could not fetch room info.'); const { data: creator } = await sb.from('app_users').select('username').eq('user_id', room.creator_id).single(); const { data: owner } = await sb.from('app_users').select('username').eq('user_id', room.owner_id).single(); const { data: mods } = await sb.from('room_moderators').select('user_id').eq('room_id', currentRoom); let modsHtml = '<p style="color:var(--muted);font-size:12px;">None</p>'; if (mods && mods.length > 0) { const { data: modUsers } = await sb.from('app_users').select('user_id, username').in('user_id', mods.map(m => m.user_id)); if (modUsers && modUsers.length > 0) { modsHtml = modUsers.map(m => `<div class="list-row" style="cursor:default; border-bottom:none;"><span style="flex:1; font-weight:600;">${escapeHtml(m.username)} (ID: ${m.user_id})</span>${(room.creator_id === currentUser.user_id || room.owner_id === currentUser.user_id) ? `<button class="act-btn danger" onclick="removeModerator(${m.user_id})">➖</button>` : ''}</div>`).join(''); } } const canManage = room.creator_id === currentUser.user_id || room.owner_id === currentUser.user_id; const isCreator = room.creator_id === currentUser.user_id; let html = `<div class="list-row"><span style="flex:1;color:var(--muted);">Name</span><b>${escapeHtml(room.name)}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Room ID</span><b>#${room.room_id}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Score</span><b>${room.rating_points} pts</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Creator</span><b>${creator ? escapeHtml(creator.username) : 'Unknown'}</b></div><div class="list-row"><span style="flex:1;color:var(--muted);">Owner</span><b>${owner ? escapeHtml(owner.username) : 'Unknown'}</b></div><div style="margin-top:15px; font-size:13px; font-weight:700;">Moderators:</div><div style="border:1px solid var(--line); border-radius:8px; padding:5px 10px; margin-bottom:15px;">${modsHtml}</div>`; if (canManage) html += `<label class="field">Add Moderator (User ID)</label><div style="display:flex; gap:10px;"><input type="number" id="mod-id-input" placeholder="e.g. 5" style="flex:1;" /><button class="btn-sm" onclick="addModerator()">Add</button></div>`; if (isCreator) html += `<label class="field" style="margin-top:20px;">Transfer Ownership (User ID)</label><div style="display:flex; gap:10px;"><input type="number" id="owner-id-input" placeholder="e.g. 5" style="flex:1;" /><button class="btn-sm" onclick="transferOwnership()">Transfer</button></div>`; openModal('ℹ️ Room Info', html); };
-// ✅ مودراتورها از RPC امن
 window.addModerator = async () => { const id = parseInt(el('mod-id-input').value); if (!id) return alert('Enter a valid ID.'); try { await rpc('add_room_moderator', { p_token: sessionToken, p_target_id: id }); alert('Moderator added!'); el('tb-roominfo').click(); } catch(e){} };
 window.removeModerator = async (uid) => { if (!confirm('Remove this moderator?')) return; try { await rpc('remove_room_moderator', { p_token: sessionToken, p_target_id: uid }); alert('Removed!'); el('tb-roominfo').click(); } catch(e){} };
 window.transferOwnership = async () => { const id = parseInt(el('owner-id-input').value); if (!id) return alert('Enter a valid ID.'); if (id === currentUser.user_id) return alert('You are already the owner.'); try { await rpc('transfer_room_ownership', { p_token: sessionToken, p_target_id: id }); alert('Ownership transferred!'); el('tb-roominfo').click(); } catch(e){} };
 
-// --- Admin Panel (همه RPC + رمز) ---
+// --- Admin Panel ---
 el('tb-admin').onclick = async () => {
   if (!currentUser.is_admin && !currentUser.is_super_mod) return;
   const treasury = await getTreasury();
@@ -666,7 +664,6 @@ el('tb-admin').onclick = async () => {
 };
 window.switchAdminTab = (tab, btn) => { document.querySelectorAll('.pm-modal-tab').forEach(t => t.classList.remove('active')); btn.classList.add('active'); ['requests','users','rooms','economy','super_mods','sm_ban'].forEach(t => { if(el(`admin-${t}`)) el(`admin-${t}`).classList.add('hidden'); }); if(el(`admin-${tab}`)) el(`admin-${tab}`).classList.remove('hidden'); };
 
-// 🔑 رمز ادمین — یک‌بار، ۵ دقیقه اعتبار
 let adminPassCache = null, adminPassTime = 0;
 async function getAdminPass() {
   if (adminPassCache && Date.now() - adminPassTime < 5*60*1000) return adminPassCache;
@@ -718,7 +715,7 @@ async function loadAdminSMs() {
   if (el('sm-list')) el('sm-list').innerHTML = html;
 }
 
-// --- منوی کاربر (About User اول) ---
+// --- منوی کاربر ---
 function showCtx(e, name, uid) {
   e.preventDefault(); e.stopPropagation();
   const root = el('context-root'); root.innerHTML = '';
@@ -761,4 +758,5 @@ function closeModal() { const r = el('modal-root'); if (r) r.innerHTML = ''; }
 })();
 </script>
 </body>
-</html>
+</html> 
+  
