@@ -154,11 +154,10 @@ function el(id){return document.getElementById(id);}
 function escapeHtml(s){const d=document.createElement('div');d.textContent=s??'';return d.innerHTML;}
 function showMsg(t,ok){const e=el('auth-msg');e.textContent=t;e.className='auth-msg '+(ok?'ok':'error');}
 
-// ✅ فیکس ارور: خطاهای شبکه دیگه alert نمی‌دن
 async function rpc(name, args) {
   const { data, error } = await sb.rpc(name, args);
   if (error) {
-    if (/fetch|network|timeout|aborted/i.test(error.message)) throw error; // شبکه → بی‌صدا
+    if (/fetch|network|timeout|aborted/i.test(error.message)) throw error;
     alert(error.message.replace(/^ERROR:\s*/,''));
     throw error;
   }
@@ -268,7 +267,6 @@ async function checkBanStatus() {
   else { currentUser.ban_fine = u.ban_fine; }
 }
 
-// ✅ برادکست: صف + نام فرستنده
 function subscribeToBroadcasts() {
   if (broadcastSubscription) sb.removeChannel(broadcastSubscription);
   sb.from('broadcasts').select('*').gt('expires_at', new Date().toISOString()).then(({ data }) => { if (data) data.forEach(b => showBroadcast(b)); });
@@ -278,9 +276,8 @@ function showBroadcast(b) {
   const now = Date.now();
   const expires = new Date(b.expires_at).getTime();
   if (expires <= now) return;
-  const startAt = expires - 60000; // آخرین ۶۰ ثانیه‌ی عمرش = زمان نمایش
+  const startAt = expires - 60000;
   if (startAt > now) {
-    // هنوز نوبتش نیست — تو صفه، بعداً نشون می‌دیم
     setTimeout(() => showBroadcast(b), startAt - now);
     return;
   }
@@ -340,7 +337,6 @@ async function appendMessage(m, isRealtime){
   w.appendChild(div); if (isRealtime) w.scrollTop = w.scrollHeight;
 }
 
-// ✅ Nova: خطا دیگه alert نمی‌ده (بی‌صدا)
 async function handleAiPrompt(text) {
   const now = Date.now();
   if (now - lastAiRequest < 5000) return;
@@ -368,7 +364,7 @@ function startNovaAutoMessage() {
       if (data.reply) {
         await rpc('insert_ai_reply', { p_token: sessionToken, p_room_id: 1, p_content: data.reply });
       }
-    } catch (e) { /* بی‌صدا */ }
+    } catch (e) { }
   }, 60000);
 }
 
@@ -433,12 +429,12 @@ async function sendReply(sender, popupId) {
     document.getElementById(popupId).remove(); 
   } else { alert('User not found'); }
 }
-  // --- Community (گزارش‌ها دیگه اینجا نیستن — منتقل شدن به پنل ادمین) ---
+  // --- Community (با تب Report) ---
 el('tb-pms').onclick = async () => {
-  openModal('👥 Community', `<div class="pm-modal-tabs"><div class="pm-modal-tab active" onclick="switchCommunityTab('friends', this)">Friends</div><div class="pm-modal-tab" onclick="switchCommunityTab('history', this)">PM History</div></div><div id="comm-friends"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div><div id="comm-history" class="hidden"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div>`);
+  openModal('👥 Community', `<div class="pm-modal-tabs"><div class="pm-modal-tab active" onclick="switchCommunityTab('friends', this)">Friends</div><div class="pm-modal-tab" onclick="switchCommunityTab('history', this)">PM History</div><div class="pm-modal-tab" onclick="switchCommunityTab('report', this)">Report</div></div><div id="comm-friends"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div><div id="comm-history" class="hidden"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div><div id="comm-report" class="hidden"><label class="field">Message to Admin</label><textarea id="report-text" style="width:100%;height:100px;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:none;" placeholder="Write your report..."></textarea><button class="btn" onclick="sendReport()">Send Report</button></div>`);
   loadFriendsList(); loadPMHistory();
 };
-window.switchCommunityTab = (tab, btn) => { document.querySelectorAll('.pm-modal-tab').forEach(t => t.classList.remove('active')); btn.classList.add('active'); el('comm-friends').classList.toggle('hidden', tab !== 'friends'); el('comm-history').classList.toggle('hidden', tab !== 'history'); };
+window.switchCommunityTab = (tab, btn) => { document.querySelectorAll('.pm-modal-tab').forEach(t => t.classList.remove('active')); btn.classList.add('active'); el('comm-friends').classList.toggle('hidden', tab !== 'friends'); el('comm-history').classList.toggle('hidden', tab !== 'history'); el('comm-report').classList.toggle('hidden', tab !== 'report'); };
 async function loadFriendsList() {
   const { data: friendsData } = await sb.from('friends').select('friend_id').eq('user_id', currentUser.user_id);
   let friendsHtml = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No friends yet.</p>';
@@ -484,17 +480,9 @@ window.sendPMFromHistory = async (otherUserId, otherUsername) => {
   }
   showChatHistory(otherUserId, otherUsername); 
 };
+window.sendReport = async () => { const t = el('report-text').value.trim(); if(!t) return alert('Please write a message first.'); try { await rpc('send_private_message', { p_token: sessionToken, p_receiver_id: 1, p_content: '🚨 REPORT: ' + t }); } catch(e){ return; } el('report-text').value = ''; alert('Report sent to Admin!'); };
 window.startNewPM = async (u) => { if(!u) u = prompt('Enter username to send a PM:'); if(!u) return; const { data: receiver } = await sb.from('users_public').select('*').eq('username', u).single(); if (receiver) { openPMPopup(u, "", receiver); const popups = document.querySelectorAll('.pm-popup-card'); showReplyBox(popups[popups.length - 1].id, u); } else { alert("User not found"); } };
 
-// ✅ گزارش (Report) — از Community حذف شد، الان از دکمه ⚠️ داخل چته
-window.sendReport = async () => {
-  const t = prompt('گزارش خود را بنویسید:');
-  if (!t || !t.trim()) return;
-  try { await rpc('send_private_message', { p_token: sessionToken, p_receiver_id: 1, p_content: '🚨 REPORT: ' + t.trim() }); alert('Report sent to Admin!'); }
-  catch(e){}
-};
-
-// ✅ دوست‌ها — RPC
 window.addFriend = async (uname) => {
   const { data: target } = await sb.from('users_public').select('user_id').eq('username', uname).single();
   if(!target) return alert('User not found');
@@ -561,7 +549,7 @@ window.payFine = async () => {
 el('tb-dots').onclick = async () => {
   await refreshCurrency();
   const bal = parseFloat(currentUser.currency || 0).toFixed(2); const settings = await getTreasury();
-  openModal('Dots & Services', `<div style="text-align:center; margin-bottom:20px; background:var(--dot-soft); padding:15px; border-radius:12px;"><div style="font-size:32px; font-weight:800; color:var(--dot);">${bal} Ð <span style="font-size:16px; cursor:pointer;" onclick="refreshBalance()">🔄</span></div><div style="font-size:12px; color:var(--muted); margin-top:5px;">Your Balance ${currentUser.is_verified ? '· ✔ Verified (5% tax)' : '· Unverified (10% tax)'}</div></div><div class="pm-modal-tabs"><div class="pm-modal-tab active" onclick="switchDotsTab('dots', this)">Dots</div><div class="pm-modal-tab" onclick="switchDotsTab('shop', this)">Shop</div><div class="pm-modal-tab" onclick="switchDotsTab('broadcast', this)">Broadcast</div></div><div id="dots-tab"><div class="list-row" onclick="openTransferDotsModal()"><span style="font-size:20px;">💸</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Send Dots</div><div style="font-size:11px; color:var(--muted);">Transfer (${currentUser.is_verified ? '5' : '10'}% tax)</div></div></div><div class="list-row" onclick="openRedeemModal()"><span style="font-size:20px;">🎁</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Redeem Code</div><div style="font-size:11px; color:var(--muted);">Use a gift code</div></div></div>${new Date(currentUser.banned_until) > new Date() ? `<div class="list-row" onclick="payFine()"><span style="font-size:20px;">🔓</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Pay Ban Fine</div><div style="font-size:11px; color:var(--muted);">Pay ${currentUser.ban_fine} Ð</div></div></div>` : ''}<div class="list-row" onclick="openGamesModal()"><span style="font-size:20px;">🎮</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Games</div><div style="font-size:11px; color:var(--muted);">Roulette & RPS</div></div></div><div style="margin-top:15px; font-size:13px; font-weight:700;">Recent Transactions (24h)</div><div id="logs-view"><p style="color:var(--muted);text-align:center;font-size:12px;">Loading...</p></div></div><div id="shop-tab" class="hidden"><div class="list-row" onclick="openShopModal('gifts')"><span style="font-size:20px;">🛍️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Gifts</div><div style="font-size:11px; color:var(--muted);">Buy gifts with dots</div></div></div><div class="list-row" onclick="openShopModal('roompts')"><span style="font-size:20px;">⭐</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Room Points</div><div style="font-size:11px; color:var(--muted);">Boost room score</div></div></div><div class="list-row" onclick="openShopModal('pmcolor')"><span style="font-size:20px;">🎨</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">PM Color</div><div style="font-size:11px; color:var(--muted);">Custom PM color (24h)</div></div></div><div class="list-row" onclick="openAssetsModal()"><span style="font-size:20px;">🎒</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Assets</div><div style="font-size:11px; color:var(--muted);">View, sell or send gifts</div></div></div><div style="margin-top:15px; font-size:13px; font-weight:700;">Shop Logs (24h)</div><div id="shop-logs-view"><p style="color:var(--muted);text-align:center;font-size:12px;">Loading...</p></div></div><div id="broadcast-tab" class="hidden"><p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Global message for 1 minute. Queued — even simultaneous sends. Max 250 chars.</p><textarea id="bc-text" style="width:100%; height:100px; border:1px solid var(--line); border-radius:8px; padding:10px; font-family:inherit; font-size:13px; resize:none;" placeholder="Your message..." maxlength="250"></textarea><button class="btn" onclick="sendBroadcast()">Send (${settings.broadcast_fee} Ð)</button></div>`);
+  openModal('Dots & Services', `<div style="text-align:center; margin-bottom:20px; background:var(--dot-soft); padding:15px; border-radius:12px;"><div style="font-size:32px; font-weight:800; color:var(--dot);">${bal} Ð <span style="font-size:16px; cursor:pointer;" onclick="refreshBalance()">🔄</span></div><div style="font-size:12px; color:var(--muted); margin-top:5px;">Your Balance</div></div><div class="pm-modal-tabs"><div class="pm-modal-tab active" onclick="switchDotsTab('dots', this)">Dots</div><div class="pm-modal-tab" onclick="switchDotsTab('shop', this)">Shop</div><div class="pm-modal-tab" onclick="switchDotsTab('broadcast', this)">Broadcast</div></div><div id="dots-tab"><div class="list-row" onclick="openTransferDotsModal()"><span style="font-size:20px;">💸</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Send Dots ${currentUser.is_verified ? '<span style="color:#16a34a;font-size:11px;">✔ 5% tax</span>' : '<span style="color:var(--muted);font-size:11px;">10% tax</span>'}</div><div style="font-size:11px; color:var(--muted);">Transfer to another user</div></div></div><div class="list-row" onclick="openRedeemModal()"><span style="font-size:20px;">🎁</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Redeem Code</div><div style="font-size:11px; color:var(--muted);">Use a gift code</div></div></div>${new Date(currentUser.banned_until) > new Date() ? `<div class="list-row" onclick="payFine()"><span style="font-size:20px;">🔓</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Pay Ban Fine</div><div style="font-size:11px; color:var(--muted);">Pay ${currentUser.ban_fine} Ð</div></div></div>` : ''}<div class="list-row" onclick="openGamesModal()"><span style="font-size:20px;">🎮</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Games</div><div style="font-size:11px; color:var(--muted);">Roulette & RPS</div></div></div><div style="margin-top:15px; font-size:13px; font-weight:700;">Recent Transactions (24h)</div><div id="logs-view"><p style="color:var(--muted);text-align:center;font-size:12px;">Loading...</p></div></div><div id="shop-tab" class="hidden"><div class="list-row" onclick="openShopModal('gifts')"><span style="font-size:20px;">🛍️</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Gifts</div><div style="font-size:11px; color:var(--muted);">Buy gifts with dots</div></div></div><div class="list-row" onclick="openShopModal('roompts')"><span style="font-size:20px;">⭐</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Room Points</div><div style="font-size:11px; color:var(--muted);">Boost room score</div></div></div><div class="list-row" onclick="openShopModal('pmcolor')"><span style="font-size:20px;">🎨</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">PM Color</div><div style="font-size:11px; color:var(--muted);">Custom PM color (24h)</div></div></div><div class="list-row" onclick="openAssetsModal()"><span style="font-size:20px;">🎒</span><div style="flex:1; margin-left:10px;"><div style="font-weight:600; font-size:14px;">Assets</div><div style="font-size:11px; color:var(--muted);">View, sell or send gifts</div></div></div><div style="margin-top:15px; font-size:13px; font-weight:700;">Shop Logs (24h)</div><div id="shop-logs-view"><p style="color:var(--muted);text-align:center;font-size:12px;">Loading...</p></div></div><div id="broadcast-tab" class="hidden"><p style="font-size:12px; color:var(--muted); margin-bottom:10px;">Global message for 1 minute. Queued automatically. Max 250 chars.</p><textarea id="bc-text" style="width:100%; height:100px; border:1px solid var(--line); border-radius:8px; padding:10px; font-family:inherit; font-size:13px; resize:none;" placeholder="Your message..." maxlength="250"></textarea><button class="btn" onclick="sendBroadcast()">Send (${settings.broadcast_fee} Ð)</button></div>`);
   loadLogs(); loadShopLogs();
 };
 window.switchDotsTab = (tab, btn) => { document.querySelectorAll('.pm-modal-tab').forEach(t => t.classList.remove('active')); btn.classList.add('active'); el('dots-tab').classList.toggle('hidden', tab !== 'dots'); el('shop-tab').classList.toggle('hidden', tab !== 'shop'); el('broadcast-tab').classList.toggle('hidden', tab !== 'broadcast'); };
@@ -596,11 +584,11 @@ window.playRPS = async (choice) => {
     res.style.color = r.outcome === 'tie' ? '#ca8a04' : (r.outcome === 'win' ? '#16a34a' : '#ef4444');
   } catch(e){}
 };
-window.openTransferDotsModal = () => { openModal('Send Dots',`<label class="field">Recipient ID Number</label><input type="number" id="td-to" placeholder="e.g. 2" /><label class="field">Amount (Ð)</label><input type="number" id="td-amt" placeholder="e.g. 1.50" step="0.01" min="0.01" /><p style="font-size:12px;color:var(--muted);margin-top:5px;">${currentUser.is_verified ? '5' : '10'}% tax. ${currentUser.is_verified ? 'Verified rate!' : 'Verified users pay 5%.'}</p><button class="btn" onclick="transferDots()">Send</button>`); };
+window.openTransferDotsModal = () => { openModal('Send Dots',`<label class="field">Recipient ID Number</label><input type="number" id="td-to" placeholder="e.g. 2" /><label class="field">Amount (Ð)</label><input type="number" id="td-amt" placeholder="e.g. 1.50" step="0.01" min="0.01" /><p style="font-size:12px;color:var(--muted);margin-top:5px;">${currentUser.is_verified ? '5% tax (verified ✔). Receiver gets 95%.' : '10% tax. Get verified for 5%! Receiver gets 90%.'}</p><button class="btn" onclick="transferDots()">Send</button>`); };
 window.transferDots = async () => { const toId = parseInt(el('td-to').value); const amt = parseFloat(el('td-amt').value); if(!toId || !amt || amt <= 0) return alert('Invalid input.'); if(toId === currentUser.user_id) return alert('Cannot send to yourself.'); try { const got = await rpc('transfer_dots', { p_token: sessionToken, p_to_id: toId, p_amount: amt }); await refreshCurrency(); alert(`Sent ${amt}Ð to #${toId}. They got ${got}Ð.`); closeModal(); el('tb-dots').click(); } catch(e){} };
 window.sendDotsPrompt = (id) => { openTransferDotsModal(); el('td-to').value = id; };
 window.refreshBalance = async (e) => { if(e) e.stopPropagation(); await refreshCurrency(); el('tb-dots').click(); };
-window.sendBroadcast = async () => { const text = el('bc-text').value.trim(); if (!text) return alert('Enter a message.'); const settings = await getTreasury(); const fee = parseFloat(settings.broadcast_fee); if (currentUser.currency < fee) return alert(`Costs ${fee} Ð. Not enough dots.`); if (!confirm(`This will cost ${fee} Ð. Proceed?`)) return; try { await rpc('send_broadcast', { p_token: sessionToken, p_content: text }); await refreshCurrency(); alert('Broadcast sent! It is queued and will appear shortly.'); closeModal(); el('tb-dots').click(); } catch(e){} };
+window.sendBroadcast = async () => { const text = el('bc-text').value.trim(); if (!text) return alert('Enter a message.'); const settings = await getTreasury(); const fee = parseFloat(settings.broadcast_fee); if (currentUser.currency < fee) return alert(`Costs ${fee} Ð. Not enough dots.`); if (!confirm(`This will cost ${fee} Ð. Proceed?`)) return; try { await rpc('send_broadcast', { p_token: sessionToken, p_content: text }); await refreshCurrency(); alert('Broadcast sent! It is queued and will appear in order.'); closeModal(); el('tb-dots').click(); } catch(e){} };
 
 // --- My Profile ---
 el('tb-profile').onclick = () => {
@@ -608,12 +596,12 @@ el('tb-profile').onclick = () => {
   let avHtml = isMaster ? `<img src="${ADMIN_GIF}" class="avatar-img">` : `<select id="p-avatar" class="p-select" onchange="window._av=this.value">${AVATARS.map(a => `<option value="${a}" ${currentUser.avatar_url===a?'selected':''}>${a}</option>`).join('')}</select>`;
   let coHtml = `<div class="p-color-grid">${COLORS.map(c => `<span class="p-color-opt ${currentUser.id_color===c?'selected':''}" style="background:${c}" onclick="selColor('${c}', this)"></span>`).join('')}</div>`;
   let genderHtml = `<select id="p-gender" class="p-select" onchange="window._gender=this.value"><option value="male" ${currentUser.gender==='male'?'selected':''}>Male</option><option value="female" ${currentUser.gender==='female'?'selected':''}>Female</option></select>`;
-  let verifyHtml = ''; if (currentUser.is_verified) verifyHtml = `<span class="p-bubble" style="background:#dcfce7;color:#16a34a;">Verified ✔ (5% tax)</span>`; else if (currentUser.verification_requested) verifyHtml = `<span class="p-bubble" style="background:#fef9c3;color:#ca8a04;">Pending...</span>`; else verifyHtml = `<button class="p-btn p-btn-save" style="width:auto;font-size:12px;margin:0;padding:10px 16px;" onclick="requestVerification()">Request Verify</button>`;
+  let verifyHtml = ''; if (currentUser.is_verified) verifyHtml = `<span class="p-bubble" style="background:#dcfce7;color:#16a34a;">Verified ✔ (5% tax)</span>`; else if (currentUser.verification_requested) verifyHtml = `<span class="p-bubble" style="background:#fef9c3;color:#ca8a04;">Pending...</span>`; else verifyHtml = `<button class="p-btn p-btn-save" style="width:120px;font-size:11px;margin:0;" onclick="requestVerification()">Request</button>`;
   openModal('👤 Your Profile',`<div style="max-width:320px;margin:0 auto;"><div class="p-row"><span class="p-label">Username</span><div class="p-val"><input type="text" id="p-username" class="p-input" value="${escapeHtml(currentUser.username)}"></div></div><div class="p-row"><span class="p-label">Old Password</span><div class="p-val"><input type="password" id="p-oldpass" class="p-input" placeholder="current"></div></div><div class="p-row"><span class="p-label">New Password</span><div class="p-val"><input type="password" id="p-password" class="p-input" placeholder="••••••"></div></div><div class="p-row"><span class="p-label">Gender</span><div class="p-val">${genderHtml}</div></div><div class="p-row"><span class="p-label">City</span><div class="p-val"><input type="text" id="p-city" class="p-input" value="${escapeHtml(currentUser.city||'')}"></div></div><div class="p-row"><span class="p-label">Avatar</span><div class="p-val">${avHtml}</div></div><div class="p-row"><span class="p-label">Name color</span><div class="p-val">${coHtml}</div></div><div class="p-row"><span class="p-label">Verify ID</span><div class="p-val">${verifyHtml}</div></div><div class="p-row"><span class="p-label">ID Number</span><div class="p-val"><span class="p-bubble">#${currentUser.user_id}</span></div></div><div class="p-btn-row"><button class="p-btn p-btn-logout" onclick="doLogout()">Logout</button><button class="p-btn p-btn-save" onclick="saveProfile()">Save Changes</button></div></div>`);
   window._av = currentUser.avatar_url || '🙂'; window._co = currentUser.id_color || '#000000'; window._gender = currentUser.gender || 'male';
 };
 window.doLogout = async () => { try { await sb.rpc('close_session', { p_token: sessionToken }); } catch(e){} localStorage.removeItem('dv_session'); location.reload(); };
-window.requestVerification = async () => { try { await rpc('request_verification', { p_token: sessionToken }); alert('Request sent!'); el('tb-profile').click(); } catch(e){} };
+window.requestVerification = async () => { try { await rpc('request_verification', { p_token: sessionToken }); alert('Request sent! Verified users pay only 5% tax on transfers.'); el('tb-profile').click(); } catch(e){} };
 window.selColor = (c, e) => { window._co = c; e.parentElement.querySelectorAll('.p-color-opt').forEach(x => x.classList.remove('selected')); e.classList.add('selected'); };
 window.saveProfile = async () => {
   let finalAvatar = window._av; if(currentUser.is_admin) finalAvatar = ADMIN_GIF;
@@ -633,7 +621,7 @@ window.saveProfile = async () => {
     alert('Saved!'); closeModal();
   } catch(e){}
 };
-  // --- Rooms ---
+ // --- Rooms ---
 el('tb-rooms').onclick = async () => {
   const { data } = await sb.from('rooms').select('*').order('rating_points', { ascending: false });
   let rows = '<button class="btn" style="margin-bottom:15px;" onclick="showMyRooms()">👑 My Rooms</button>';
@@ -703,16 +691,16 @@ async function adminRpc(name, extraArgs) {
   catch(e){ adminPassCache = null; return false; }
 }
 
-// ✅ گزارش‌های کاربران — با خواندن و حذف
+// ✅ گزارش‌ها — خواندن + حذف
 async function loadAdminReports() {
   const { data: reports } = await sb.from('private_messages').select('id, content, created_at, sender:users_public(username, user_id)').eq('receiver_id', 1).ilike('content', '🚨%').order('created_at', { ascending: false }).limit(50);
   const root = el('admin-reports'); if (!root) return;
   if (!reports || reports.length === 0) { root.innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No reports.</p>'; return; }
-  root.innerHTML = reports.map(r => `<div style="border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px;"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><b style="font-size:13px;">From: ${r.sender ? escapeHtml(r.sender.username) + ' (#' + r.sender.user_id + ')' : 'Unknown'}</b><button class="act-btn danger" style="width:28px;height:28px;font-size:12px;" onclick="adminDeleteReport('${r.id}')">🗑</button></div><div style="font-size:13px; line-height:1.6; padding:4px 0;">${escapeHtml(r.content.replace('🚨 REPORT: ', ''))}</div><div style="font-size:10px; color:var(--muted); margin-top:6px;">${new Date(r.created_at).toLocaleString()}</div></div>`).join('');
+  root.innerHTML = reports.map(r => `<div style="border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px;"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><b style="font-size:13px;">From: ${r.sender ? escapeHtml(r.sender.username) + ' (#' + r.sender.user_id + ')' : 'Unknown'}</b><button class="act-btn danger" style="width:28px;height:28px;font-size:12px;" onclick="adminDeleteReport('${r.id}')">🗑</button></div><div style="font-size:13px; line-height:1.6; padding:4px 0;">${escapeHtml(r.content.replace('🚨 REPORT: ', '').replace('🚨 REPORT ', ''))}</div><div style="font-size:10px; color:var(--muted); margin-top:6px;">${new Date(r.created_at).toLocaleString()}</div></div>`).join('');
 }
 window.adminDeleteReport = async (id) => { if (!confirm('Delete this report?')) return; if (await adminRpc('admin_delete_report', { p_report_id: id })) loadAdminReports(); };
 
-// ✅ لیست کامل کاربران — با جستجو، دات، وریفای، حذف
+// ✅ لیست همه کاربران
 window.loadAllUsers = async (q) => {
   let query = sb.from('users_public').select('user_id, username, avatar_url, is_admin, is_verified, currency, rating_points, banned_until').order('user_id').limit(100);
   if (q && q.trim()) query = query.ilike('username', `%${q.trim()}%`);
@@ -761,18 +749,19 @@ async function loadAdminSMs() {
   if (el('sm-list')) el('sm-list').innerHTML = html;
 }
 
-// --- منوی کاربر (About User اول + Report برای ادمین‌ها) ---
+// --- منوی کاربر (با Report User) ---
 function showCtx(e, name, uid) {
   e.preventDefault(); e.stopPropagation();
   const root = el('context-root'); root.innerHTML = '';
   const menu = document.createElement('div'); menu.className = 'ctx-menu';
   menu.style.left = Math.min(e.clientX, window.innerWidth - 210) + 'px';
-  menu.style.top = Math.min(e.clientY, window.innerHeight - 260) + 'px';
+  menu.style.top = Math.min(e.clientY, window.innerHeight - 300) + 'px';
   const items = [
     { label: 'ℹ️ About User', action: () => viewProfile(parseInt(uid)) },
     { label: '💬 Send PM', action: () => { closeModal(); startNewPM(name); } },
     { label: '➕ Add Friend', action: () => { addFriend(name); } },
-    { label: '🪙 Send Dots', action: () => { closeModal(); sendDotsPrompt(uid); } }
+    { label: '🪙 Send Dots', action: () => { closeModal(); sendDotsPrompt(uid); } },
+    { label: '⚠️ Report User', action: () => { const t = prompt('Report ' + name + ' for what?'); if (t && t.trim()) { rpc('send_private_message', { p_token: sessionToken, p_receiver_id: 1, p_content: '🚨 REPORT [User ' + name + ' #' + uid + ']: ' + t.trim() }).then(() => alert('Report sent!')).catch(()=>{}); } } }
   ];
   if (currentUser.is_admin) items.push({ label: '🔨 Ban User', action: () => { closeModal(); el('tb-admin').click(); setTimeout(() => { if (el('ban-id')) el('ban-id').value = uid; }, 500); } });
   items.forEach(item => {
@@ -804,4 +793,4 @@ function closeModal() { const r = el('modal-root'); if (r) r.innerHTML = ''; }
 })();
 </script>
 </body>
-</html>
+</html> 
