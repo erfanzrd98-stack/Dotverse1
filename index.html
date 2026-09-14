@@ -396,8 +396,10 @@ function subscribeToPMs() {
   pmSubscription = sb.channel('private_messages').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages', filter: `receiver_id=eq.${currentUser.user_id}` }, payload => handleIncomingPM(payload.new)).subscribe();
 }
 async function handleIncomingPM(msg) {
+  if (currentUser.is_admin && msg.content && msg.content.startsWith('🚨')) return;
   const { data: sender } = await sb.from('users_public').select('*').eq('user_id', msg.sender_id).single();
   if (sender) openPMPopup(sender.username, msg.content, sender);
+}
 }
 function openPMPopup(sender, text, senderData) {
   const c = getPmColorScheme(senderData);
