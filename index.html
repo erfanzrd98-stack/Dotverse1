@@ -192,11 +192,12 @@ el('btn-register').onclick = async () => {
   } catch(e) { showMsg('Network error.'); }
 };
 
+// ✅ خطای واقعی نشون داده می‌شه (مثل deactivated)
 el('btn-login').onclick = async () => {
   const u=el('login-username').value.trim(),p=el('login-password').value;
   if(!u||!p) return showMsg('Enter credentials.');
   const { data: token, error: tokErr } = await sb.rpc('open_session', { p_username:u, p_password:p });
-  if (tokErr) return showMsg('Invalid username or password.');
+  if (tokErr) return showMsg(tokErr.message);
   const { data: user, error: usrErr } = await sb.rpc('login_user', { p_username:u, p_password:p });
   if (usrErr) return showMsg('Error loading profile.');
   sessionToken = token;
@@ -396,7 +397,6 @@ function subscribeToPMs() {
   pmSubscription = sb.channel('private_messages').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages', filter: `receiver_id=eq.${currentUser.user_id}` }, payload => handleIncomingPM(payload.new)).subscribe();
 }
 async function handleIncomingPM(msg) {
-  if (currentUser.is_admin && msg.content && msg.content.startsWith('🚨')) return;
   const { data: sender } = await sb.from('users_public').select('*').eq('user_id', msg.sender_id).single();
   if (sender) openPMPopup(sender.username, msg.content, sender);
 }
@@ -430,7 +430,7 @@ async function sendReply(sender, popupId) {
     document.getElementById(popupId).remove(); 
   } else { alert('User not found'); }
 }
-  // --- Community (با تب Report) ---
+// --- Community (Friends + PM History جدید + Report) ---
 el('tb-pms').onclick = async () => {
   openModal('👥 Community', `<div class="pm-modal-tabs"><div class="pm-modal-tab active" onclick="switchCommunityTab('friends', this)">Friends</div><div class="pm-modal-tab" onclick="switchCommunityTab('history', this)">PM History</div><div class="pm-modal-tab" onclick="switchCommunityTab('report', this)">Report</div></div><div id="comm-friends"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div><div id="comm-history" class="hidden"><p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">Loading...</p></div><div id="comm-report" class="hidden"><label class="field">Message to Admin</label><textarea id="report-text" style="width:100%;height:100px;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:none;" placeholder="Write your report..."></textarea><button class="btn" onclick="sendReport()">Send Report</button></div>`);
   loadFriendsList(); loadPMHistory();
@@ -447,19 +447,31 @@ async function loadFriendsList() {
   }
   friendsHtml += `<button class="btn" style="margin-top:16px;" onclick="startNewPM()">Start New PM</button>`; el('comm-friends').innerHTML = friendsHtml;
 }
+// ✅ PM History جدید: آخرین پیام هر گفتگو + تعداد کل
 async function loadPMHistory() {
-  const { data: sent } = await sb.from('private_messages').select('receiver_id').eq('sender_id', currentUser.user_id).limit(50);
-  const { data: received } = await sb.from('private_messages').select('sender_id').eq('receiver_id', currentUser.user_id).limit(50);
-  const userIds = new Set(); sent.forEach(m => userIds.add(m.receiver_id)); received.forEach(m => userIds.add(m.sender_id));
-  userIds.delete(currentUser.user_id); userIds.delete(1); userIds.delete(3); userIds.delete(4);
-  let historyHtml = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No history yet.</p>';
-  if (userIds.size > 0) {
-    const { data: users } = await sb.from('users_public').select('user_id, username, avatar_url, is_admin, is_system, is_super_mod').in('user_id', Array.from(userIds));
-    if (users && users.length > 0) { 
-      historyHtml = users.map(u => `<div class="friend-row" style="cursor:pointer;" onclick="showChatHistory(${u.user_id}, '${escapeHtml(u.username)}')"><div class="friend-info"><span class="friend-av${getAvExtra(u.user_id)}">${getUserAvatar(u, u.user_id)}</span><span class="friend-name">${escapeHtml(u.username)}</span></div><span style="font-size:12px;color:var(--muted)">Tap to chat</span></div>`).join(''); 
-    }
-  }
-  el('comm-history').innerHTML = historyHtml;
+  const { data: msgs } = await sb.from('private_messages').select('id, sender_id, receiver_id, content, created_at').or(`sender_id.eq.${currentUser.user_id},receiver_id.eq.${currentUser.user_id}`).order('created_at', { ascending: false }).limit(500);
+  const root = el('comm-history');
+  if (!msgs || msgs.length === 0) { root.innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No history yet.</p>'; return; }
+  const convos = {};
+  msgs.forEach(m => {
+    const other = m.sender_id === currentUser.user_id ? m.receiver_id : m.sender_id;
+    if (!convos[other]) convos[other] = { other_id: other, last: m, count: 0, last_time: new Date(m.created_at) };
+    convos[other].count++;
+    const t = new Date(m.created_at);
+    if (t > convos[other].last_time) { convos[other].last = m; convos[other].last_time = t; }
+  });
+  const others = Object.keys(convos).map(Number).filter(id => id !== 1 && id !== 3 && id !== 4);
+  if (others.length === 0) { root.innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No history yet.</p>'; return; }
+  const { data: users } = await sb.from('users_public').select('user_id, username, avatar_url, is_admin, is_system, is_super_mod').in('user_id', others);
+  const sorted = others.sort((a, b) => convos[b].last_time - convos[a].last_time);
+  root.innerHTML = sorted.map(id => {
+    const c = convos[id];
+    const u = users ? users.find(x => x.user_id === id) : null;
+    const uname = u ? u.username : '#' + id;
+    const lastText = c.last.content.length > 40 ? c.last.content.substring(0, 40) + '…' : c.last.content;
+    const lastTime = new Date(c.last.created_at).toLocaleDateString();
+    return `<div class="friend-row" style="cursor:pointer;" onclick="showChatHistory(${id}, '${escapeHtml(uname)}')"><div class="friend-info"><span class="friend-av${getAvExtra(id)}">${getUserAvatar(u, id)}</span><div><div class="friend-name">${escapeHtml(uname)}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:170px;">${escapeHtml(lastText)}</div></div></div><div style="text-align:right;flex-shrink:0;"><span style="font-size:10px;color:var(--muted);">${lastTime}</span><div style="font-size:11px;color:var(--dot);font-weight:700;margin-top:2px;">${c.count} msgs</div></div></div>`;
+  }).join('');
 }
 window.showChatHistory = async (otherUserId, otherUsername) => {
   const orFilter = `and(sender_id.eq.${currentUser.user_id},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${currentUser.user_id})`;
@@ -481,7 +493,8 @@ window.sendPMFromHistory = async (otherUserId, otherUsername) => {
   }
   showChatHistory(otherUserId, otherUsername); 
 };
-window.sendReport = async () => { const t = el('report-text').value.trim(); if(!t) return alert('Please write a message first.'); try { await rpc('send_private_message', { p_token: sessionToken, p_receiver_id: 1, p_content: '🚨 REPORT: ' + t }); } catch(e){ return; } el('report-text').value = ''; alert('Report sent to Admin!'); };
+// ✅ Report — از جدول جدید (دیگه PV نمی‌ره)
+window.sendReport = async () => { const t = el('report-text').value.trim(); if(!t) return alert('Please write a message first.'); try { await rpc('send_report', { p_token: sessionToken, p_content: t }); } catch(e){ return; } el('report-text').value = ''; alert('Report sent to Admin!'); };
 window.startNewPM = async (u) => { if(!u) u = prompt('Enter username to send a PM:'); if(!u) return; const { data: receiver } = await sb.from('users_public').select('*').eq('username', u).single(); if (receiver) { openPMPopup(u, "", receiver); const popups = document.querySelectorAll('.pm-popup-card'); showReplyBox(popups[popups.length - 1].id, u); } else { alert("User not found"); } };
 
 window.addFriend = async (uname) => {
@@ -621,7 +634,7 @@ window.saveProfile = async () => {
     userCache[currentUser.user_id] = { username: currentUser.username, avatar_url: currentUser.avatar_url, id_color: currentUser.id_color, _ts: Date.now() };
     alert('Saved!'); closeModal();
   } catch(e){}
-};
+};  
   // --- Rooms ---
 el('tb-rooms').onclick = async () => {
   const { data } = await sb.from('rooms').select('*').order('rating_points', { ascending: false });
@@ -692,30 +705,34 @@ async function adminRpc(name, extraArgs) {
   catch(e){ adminPassCache = null; return false; }
 }
 
-// ✅ گزارش‌ها — خواندن + حذف
+// ✅ گزارش‌ها — از جدول جدید reports (دیگه PV نیستن)
 async function loadAdminReports() {
-  const { data: reports } = await sb.from('private_messages').select('id, content, created_at, sender:users_public(username, user_id)').eq('receiver_id', 1).ilike('content', '🚨%').order('created_at', { ascending: false }).limit(50);
+  const { data: reports } = await sb.from('reports').select('id, sender:users_public(username, user_id), target_username, content, created_at').order('created_at', { ascending: false }).limit(50);
   const root = el('admin-reports'); if (!root) return;
   if (!reports || reports.length === 0) { root.innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No reports.</p>'; return; }
-  root.innerHTML = reports.map(r => `<div style="border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px;"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><b style="font-size:13px;">From: ${r.sender ? escapeHtml(r.sender.username) + ' (#' + r.sender.user_id + ')' : 'Unknown'}</b><button class="act-btn danger" style="width:28px;height:28px;font-size:12px;" onclick="adminDeleteReport('${r.id}')">🗑</button></div><div style="font-size:13px; line-height:1.6; padding:4px 0;">${escapeHtml(r.content.replace('🚨 REPORT: ', '').replace('🚨 REPORT ', ''))}</div><div style="font-size:10px; color:var(--muted); margin-top:6px;">${new Date(r.created_at).toLocaleString()}</div></div>`).join('');
+  root.innerHTML = reports.map(r => `<div style="border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px;"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><b style="font-size:13px;">From: ${r.sender ? escapeHtml(r.sender.username) + ' (#' + r.sender.user_id + ')' : 'Unknown'}</b><button class="act-btn danger" style="width:28px;height:28px;font-size:12px;" onclick="adminDeleteReport('${r.id}')">🗑</button></div>${r.target_username ? `<div style="font-size:11px; color:var(--danger); margin-bottom:6px;">↳ Reported user: <b>${escapeHtml(r.target_username)}</b></div>` : ''}<div style="font-size:13px; line-height:1.6; padding:4px 0;">${escapeHtml(r.content)}</div><div style="font-size:10px; color:var(--muted); margin-top:6px;">${new Date(r.created_at).toLocaleString()}</div></div>`).join('');
 }
 window.adminDeleteReport = async (id) => { if (!confirm('Delete this report?')) return; if (await adminRpc('admin_delete_report', { p_report_id: id })) loadAdminReports(); };
 
-// ✅ لیست همه کاربران
+// ✅ لیست همه کاربران — با فعال/غیرفعال کردن
 window.loadAllUsers = async (q) => {
-  let query = sb.from('users_public').select('user_id, username, avatar_url, is_admin, is_verified, currency, rating_points, banned_until').order('user_id').limit(100);
+  let query = sb.from('users_public').select('user_id, username, avatar_url, is_admin, is_verified, is_active, currency, rating_points, banned_until').order('user_id').limit(100);
   if (q && q.trim()) query = query.ilike('username', `%${q.trim()}%`);
   const { data: users } = await query;
   const root = el('au-list'); if (!root) return;
   if (!users || users.length === 0) { root.innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px;padding:20px 0;">No users found.</p>'; return; }
   root.innerHTML = users.map(u => {
     const banned = new Date(u.banned_until) > new Date();
-    const isSystem = u.user_id === 1 || u.user_id === 3 || u.user_id === 4;
-    return `<div style="border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; display:flex; align-items:center; gap:10px;"><span class="friend-av${getAvExtra(u.user_id)}" style="width:32px;height:32px;font-size:17px;">${getUserAvatar(u, u.user_id)}</span><div style="flex:1; min-width:0;"><div style="font-weight:700; font-size:13px;">${escapeHtml(u.username)} <span style="color:var(--muted); font-weight:400; font-size:11px;">#${u.user_id}</span>${u.is_verified ? ' <span style="color:#16a34a; font-size:11px;">✔</span>' : ''}${banned ? ' <span style="color:#ef4444; font-size:11px;">🚫</span>' : ''}</div><div style="font-size:11px; color:var(--muted);">Ð ${parseFloat(u.currency).toFixed(2)} · ${u.rating_points} pts</div></div><div style="display:flex; gap:5px; flex-shrink:0;"><button class="act-btn${u.is_verified ? '' : ' primary'}" style="width:30px;height:30px;font-size:13px;" title="${u.is_verified ? 'Unverify' : 'Verify'}" onclick="adminSetUserVerified(${u.user_id}, ${!u.is_verified})">${u.is_verified ? '✔' : '✓'}</button>${!isSystem ? `<button class="act-btn danger" style="width:30px;height:30px;font-size:13px;" title="Delete user" onclick="adminDeleteUserAction(${u.user_id})">🗑</button>` : ''}</div></div>`;
+    const inactive = u.is_active === false;
+    return `<div style="border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; display:flex; align-items:center; gap:10px;${inactive ? ' opacity:0.6; background:#f9f9f9;' : ''}"><span class="friend-av${getAvExtra(u.user_id)}" style="width:32px;height:32px;font-size:17px;">${getUserAvatar(u, u.user_id)}</span><div style="flex:1; min-width:0;"><div style="font-weight:700; font-size:13px;">${escapeHtml(u.username)} <span style="color:var(--muted); font-weight:400; font-size:11px;">#${u.user_id}</span>${u.is_verified ? ' <span style="color:#16a34a; font-size:11px;">✔</span>' : ''}${banned ? ' <span style="color:#ef4444; font-size:11px;">🚫</span>' : ''}${inactive ? ' <span style="color:#ef4444; font-size:11px;">⊘ OFF</span>' : ''}</div><div style="font-size:11px; color:var(--muted);">Ð ${parseFloat(u.currency).toFixed(2)} · ${u.rating_points} pts</div></div><div style="display:flex; gap:5px; flex-shrink:0;"><button class="act-btn${u.is_verified ? '' : ' primary'}" style="width:30px;height:30px;font-size:13px;" title="${u.is_verified ? 'Unverify' : 'Verify'}" onclick="adminSetUserVerified(${u.user_id}, ${!u.is_verified})">${u.is_verified ? '✔' : '✓'}</button><button class="act-btn${inactive ? ' primary' : ' danger'}" style="width:30px;height:30px;font-size:13px;" title="${inactive ? 'Activate' : 'Deactivate'}" onclick="adminToggleUserActive(${u.user_id}, ${!inactive})">${inactive ? '⏻' : '⊘'}</button></div></div>`;
   }).join('');
 };
 window.adminSetUserVerified = async (id, is) => { if (await adminRpc('admin_set_verified', { p_target_id: id, p_is: is })) { loadAllUsers(el('au-search') ? el('au-search').value : ''); loadAdminRequests(); } };
-window.adminDeleteUserAction = async (id) => { if (!confirm('Delete this user and ALL their data? This cannot be undone.')) return; if (await adminRpc('admin_delete_user', { p_target_id: id })) { loadAllUsers(''); alert('User deleted.'); } };
+window.adminToggleUserActive = async (id, activate) => { 
+  const msg = activate ? 'Activate this user?' : 'Deactivate this user? They will be logged out and cannot log in until activated again.';
+  if (!confirm(msg)) return; 
+  if (await adminRpc('admin_set_user_active', { p_target_id: id, p_is_active: activate })) { loadAllUsers(''); alert(activate ? 'User activated!' : 'User deactivated!'); } 
+};
 
 async function loadAdminRequests() {
   const { data: reqs } = await sb.from('users_public').select('user_id, username').eq('verification_requested', true);
@@ -762,7 +779,7 @@ function showCtx(e, name, uid) {
     { label: '💬 Send PM', action: () => { closeModal(); startNewPM(name); } },
     { label: '➕ Add Friend', action: () => { addFriend(name); } },
     { label: '🪙 Send Dots', action: () => { closeModal(); sendDotsPrompt(uid); } },
-    { label: '⚠️ Report User', action: () => { const t = prompt('Report ' + name + ' for what?'); if (t && t.trim()) { rpc('send_private_message', { p_token: sessionToken, p_receiver_id: 1, p_content: '🚨 REPORT [User ' + name + ' #' + uid + ']: ' + t.trim() }).then(() => alert('Report sent!')).catch(()=>{}); } } }
+    { label: '⚠️ Report User', action: () => { const t = prompt('Report ' + name + ' for what?'); if (t && t.trim()) { rpc('send_report', { p_token: sessionToken, p_content: t.trim(), p_target_username: name }).then(() => alert('Report sent!')).catch(()=>{}); } } }
   ];
   if (currentUser.is_admin) items.push({ label: '🔨 Ban User', action: () => { closeModal(); el('tb-admin').click(); setTimeout(() => { if (el('ban-id')) el('ban-id').value = uid; }, 500); } });
   items.forEach(item => {
@@ -789,7 +806,10 @@ function closeModal() { const r = el('modal-root'); if (r) r.innerHTML = ''; }
     const { data: uid } = await sb.rpc('auth_uid_check', { p_token: tok });
     if (!uid) { localStorage.removeItem('dv_session'); return; }
     const { data: u } = await sb.from('users_public').select('*').eq('user_id', uid).single();
-    if (u) { sessionToken = tok; u.password = null; currentUser = u; startApp(); }
+    if (u) { 
+      if (u.is_active === false) { localStorage.removeItem('dv_session'); return; }
+      sessionToken = tok; u.password = null; currentUser = u; startApp(); 
+    }
   } catch(e) { console.error('Auto-login error', e); }
 })();
 </script>
